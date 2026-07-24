@@ -26,7 +26,7 @@ setup(); render(); watchLocation();
 function setup(){
  $('cameraInput').addEventListener('change',onPhoto);
  $('breakBtn').addEventListener('click',toggleBreak); $('shareBtn').addEventListener('click',()=>shareSession(state.current));
- $('quickSettings').addEventListener('click',()=>switchView('settingsView'));
+ $('quickSettings').addEventListener('click',()=>switchView(state.view==='settingsView'?'checkView':'settingsView')); $('settingsHomeBtn').addEventListener('click',()=>switchView('checkView'));
  $('saveWorkshopBtn').addEventListener('click',saveWorkshop); $('clearWorkshopBtn').addEventListener('click',()=>{state.settings.workshop=null;save();render()});
  $('radiusInput').addEventListener('change',e=>{state.settings.radius=Math.max(30,Math.min(500,+e.target.value||120));save()});
  $('breakSelect').addEventListener('change',e=>{state.settings.breakMinutes=+e.target.value;save()});
@@ -35,7 +35,7 @@ function setup(){
  $('completeClose').addEventListener('click',()=>{$('completeScreen').classList.remove('show');switchView('checkView')});
  $('completeHistory').addEventListener('click',()=>{$('completeScreen').classList.remove('show');switchView('historyView')});
 }
-function switchView(id){state.view=id;save();$$('.view').forEach(v=>v.classList.toggle('active',v.id===id));$$('.tab').forEach(b=>b.classList.toggle('active',b.dataset.view===id))}
+function switchView(id){state.view=id;save();$$('.view').forEach(v=>v.classList.toggle('active',v.id===id));$$('.tab').forEach(b=>b.classList.toggle('active',b.dataset.view===id));$('quickSettings').setAttribute('aria-label',id==='settingsView'?'홈으로 돌아가기':'설정 열기');}
 function render(){renderProgress();renderItems();renderHistory();renderSettings();switchView(state.view||'checkView')}
 function renderProgress(){const n=Object.keys(state.current.items).length,p=Math.round(n/ITEMS.length*100);$('percent').textContent=p;$('countText').textContent=`${n} / ${ITEMS.length} 완료`;$('progressFill').style.width=`${p}%`;$('statusText').textContent=state.current.completedAt?'완료':isBreak()?'잠시 외출 중':'점검 중';$('breakBtn').textContent=isBreak()?'외출 해제':'잠시 외출'}
 function renderItems(){$('itemList').innerHTML=ITEMS.map(i=>{const x=state.current.items[i.id];return`<button class="item ${x?'done':''}" data-id="${i.id}"><span class="item-icon">${i.icon}</span><span class="item-main"><span class="item-name">${i.name}</span><span class="item-meta">${x?new Date(x.timestamp).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'})+' 촬영':'탭하여 촬영'}</span></span><span class="state">${x?'✓':''}</span></button>`}).join('');$$('[data-id]').forEach(b=>b.addEventListener('click',()=>{if(state.current.completedAt)return toast('새 점검을 시작해 주세요');activeItem=b.dataset.id;$('cameraInput').value='';$('cameraInput').click()}))}
