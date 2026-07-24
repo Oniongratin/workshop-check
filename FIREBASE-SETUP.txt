@@ -1,22 +1,17 @@
-Firebase 최종 확인표
+Firebase 최종 확인
 
-[Authentication]
-- 로그인 방법 → 익명 → 사용 설정
+1. Authentication
+- Firebase Console > Authentication > 로그인 방법
+- 익명(Anonymous) 사용 설정
 
-[Firestore 규칙]
-- firestore.rules 파일 전체를 복사하여 규칙 탭에 붙여넣고 게시
+2. Firestore Database > 규칙
+- 이 폴더의 firestore.rules 내용을 붙여넣고 게시
 
-[Storage 규칙]
-- storage.rules 파일 전체를 복사하여 규칙 탭에 붙여넣고 게시
+3. Storage > 규칙
+- 이 폴더의 storage.rules 내용을 붙여넣고 게시
 
-[연결 테스트]
-- GitHub Pages에 v11 배포
-- 앱 설정 → Firebase 연결 확인
-- 'Firebase 연결됨'이 뜨면 인증과 Firestore 연결 성공
-- 사진 7장을 찍고 공유 링크가 만들어지면 Storage까지 성공
-
-오류별 확인
-- Firebase 연결 실패: Authentication 익명 로그인이 켜졌는지 확인
-- 업로드 실패: Storage 규칙 게시 여부와 Blaze 요금제 확인
-- 기록을 불러오지 못함: Firestore 규칙 게시 여부 확인
-- 예전 화면이 계속 뜸: 홈 화면 앱 삭제 → Safari 웹사이트 데이터 삭제 → Pages 주소 재접속
+4. 앱 테스트
+- GitHub Pages 배포 후 앱 > 설정 > 연결 확인
+- “Firebase 연결됨”이 뜨면 Auth와 Firestore 연결 성공
+- 사진 7장 완료 후 공유하기
+- 업로드 1/7부터 7/7까지 진행되고 공유 시트에 URL이 포함되면 성공
