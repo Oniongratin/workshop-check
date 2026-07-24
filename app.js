@@ -221,8 +221,7 @@ async function resetCurrentSession() {
   // 완료된 점검은 history와 같은 session id의 사진을 함께 사용한다.
   // 따라서 새 점검을 시작할 때 완료 기록의 사진은 절대 삭제하지 않는다.
   if (!isCompleted && hasProgress) {
-    const ok = confirm('현재 진행 중인 점검만 초기화할까요?
-완료된 날짜별 기록과 사진은 삭제되지 않습니다.');
+    const ok = confirm('현재 진행 중인 점검만 초기화할까요?\n완료된 날짜별 기록과 사진은 삭제되지 않습니다.');
     if (!ok) return;
   }
 
