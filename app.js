@@ -342,7 +342,7 @@ function renderHistory() {
     return;
   }
   $('historyList').innerHTML = state.history.map(record => `<article class="card history-card">
-    <button class="record-delete" type="button" data-delete-record="${record.id}" aria-label="이 기록 삭제">×</button>
+    <button class="record-delete" type="button" data-delete-record="${record.id}" aria-label="이 기록 삭제"><svg viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path d="M2 2L10 10M10 2L2 10" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button>
     <h3>${new Date(record.completedAt).toLocaleDateString('ko-KR')}</h3>
     <p>${formatTime(record.completedAt)} · ${Object.keys(record.items || {}).length}개 완료</p>
     <div class="card-actions"><button class="small-btn" data-view-record="${record.id}">사진 보기</button><button class="small-btn white" data-share-record="${record.id}">공유</button></div>
