@@ -347,7 +347,7 @@ async function showRecord(id) {
   if (!record) return;
   const popup = open('', '_blank');
   if (!popup) return toast('팝업 차단을 해제해 주세요');
-  popup.document.write('<meta name="viewport" content="width=device-width"><style>body{background:#000;color:#fff;font-family:-apple-system;padding:18px}img{width:100%;border-radius:14px;margin:8px 0 24px}small{color:#888}.missing{padding:30px;border:1px solid #333;border-radius:14px;color:#888;margin:8px 0 24px}</style><h1>창신체크미</h1><p>사진을 불러오는 중...</p>');
+  popup.document.write('<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>*{box-sizing:border-box}body{margin:0;background:#000;color:#fff;font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo",sans-serif;padding:calc(76px + env(safe-area-inset-top)) 18px 28px}.viewer-top{position:fixed;z-index:10;top:0;left:0;right:0;height:calc(58px + env(safe-area-inset-top));padding:env(safe-area-inset-top) 14px 0;display:flex;align-items:center;background:rgba(0,0,0,.9);backdrop-filter:blur(18px);border-bottom:1px solid #252525}.back-btn{border:0;background:transparent;color:#fff;font-size:16px;font-weight:700;padding:12px;display:flex;align-items:center;gap:7px}.back-btn span{font-size:27px;line-height:0}h1{font-size:25px;margin:0 0 22px}h3{margin:0 0 5px}img{width:100%;border-radius:14px;margin:10px 0 28px}small{color:#888}.missing{padding:30px;border:1px solid #333;border-radius:14px;color:#888;margin:10px 0 28px}</style><div class="viewer-top"><button class="back-btn" id="viewerBack" type="button"><span>‹</span>기록으로</button></div><h1>창신체크미</h1><p>사진을 불러오는 중...</p><script>document.getElementById("viewerBack").onclick=function(){window.close();setTimeout(function(){history.back()},100)}<\/script>');
 
   const sections = [];
   for (const item of ITEMS) {
@@ -356,7 +356,11 @@ async function showRecord(id) {
     const imageHtml = blob ? `<img src="${URL.createObjectURL(blob)}" alt="${escapeHtml(item.name)}">` : '<div class="missing">이 기기에서 사진을 찾지 못했습니다.</div>';
     sections.push(`<h3>${escapeHtml(item.name)}</h3><small>${meta?.timestamp ? formatDateTime(meta.timestamp) : ''}</small>${imageHtml}`);
   }
-  popup.document.body.innerHTML = `<h1>창신체크미</h1>${sections.join('')}`;
+  popup.document.body.innerHTML = `<div class="viewer-top"><button class="back-btn" id="viewerBack" type="button"><span>‹</span>기록으로</button></div><h1>창신체크미</h1>${sections.join('')}`;
+  popup.document.getElementById('viewerBack').onclick = () => {
+    popup.close();
+    try { popup.history.back(); } catch {}
+  };
 }
 
 function renderSettings() {
