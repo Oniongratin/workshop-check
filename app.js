@@ -7,7 +7,7 @@ import { getStorage, ref, uploadBytes, getDownloadURL } from 'https://www.gstati
 const ITEMS=[
 {id:'f1_ac',name:'1층 에어컨',icon:'▱'},{id:'f1_in',name:'1층 실내조명',icon:'◉'},{id:'f1_out',name:'1층 실외조명',icon:'◌'},{id:'f1_lock',name:'1층 문잠금',icon:'▣'},
 {id:'f2_ac',name:'2층 에어컨',icon:'▱'},{id:'f2_in',name:'2층 실내조명',icon:'◉'},{id:'f2_lock',name:'2층 문잠금',icon:'▣'}];
-const KEY='changsinCheckMe_v6';
+const KEY='changsinCheckMe_v8';
 const DEFAULT={current:null,history:[],settings:{workshop:null,radius:120,breakMinutes:30,breakUntil:null},view:'checkView'};
 let state=load(); let activeItem=null; let coords=null; let lastAlert=0; let fb=null;
 const $=id=>document.getElementById(id); const $$=s=>[...document.querySelectorAll(s)];

@@ -1,4 +1,4 @@
-const CACHE = 'changsin-checkme-v6';
+const CACHE = 'changsin-checkme-v8';
 const ASSETS = [
   './',
   './index.html',
