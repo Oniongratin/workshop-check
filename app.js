@@ -14,8 +14,8 @@ const ITEMS = [
   { id: 'f2_lock', name: '2층 문잠금', icon: '▣' }
 ];
 
-const KEY = 'changsinCheckMe_v12';
-const LEGACY_KEYS = ['changsinCheckMe_v11', 'changsinCheckMe_v10'];
+const KEY = 'changsinCheckMe_v13';
+const LEGACY_KEYS = ['changsinCheckMe_v12', 'changsinCheckMe_v11', 'changsinCheckMe_v10'];
 const DEFAULT = {
   current: null,
   history: [],
@@ -183,6 +183,7 @@ function setup() {
   $('cameraInput').addEventListener('change', onPhoto);
   $('breakBtn').addEventListener('click', toggleBreak);
   $('shareBtn').addEventListener('click', () => shareSession(state.current, $('shareBtn')));
+  $('homeResetBtn').addEventListener('click', resetCurrentSession);
   $('quickSettings').addEventListener('click', () => switchView(state.view === 'settingsView' ? 'checkView' : 'settingsView'));
   $('saveWorkshopBtn').addEventListener('click', saveWorkshop);
   $('clearWorkshopBtn').addEventListener('click', () => {
@@ -200,15 +201,7 @@ function setup() {
   });
   $('copyShortcutUrlBtn').addEventListener('click', copyShortcutUrl);
   $('testFirebaseBtn').addEventListener('click', testFirebase);
-  $('newSessionBtn').addEventListener('click', async () => {
-    if (Object.keys(state.current.items).length && !confirm('현재 점검을 지울까요?')) return;
-    const oldSessionId = state.current.id;
-    state.current = newSession();
-    save();
-    try { await deleteSessionPhotos(oldSessionId); } catch (error) { console.warn(error); }
-    render();
-    switchView('checkView');
-  });
+  $('newSessionBtn').addEventListener('click', resetCurrentSession);
   $$('[data-view]').forEach(button => button.addEventListener('click', () => switchView(button.dataset.view)));
   $('completeClose').addEventListener('click', () => {
     $('completeScreen').classList.remove('show');
@@ -218,6 +211,20 @@ function setup() {
     $('completeScreen').classList.remove('show');
     switchView('historyView');
   });
+}
+
+async function resetCurrentSession() {
+  const hasProgress = Object.keys(state.current?.items || {}).length > 0;
+  if (hasProgress && !confirm('현재 점검을 지우고 처음부터 다시 시작할까요?')) return;
+  const oldSessionId = state.current?.id;
+  state.current = newSession();
+  save();
+  if (oldSessionId) {
+    try { await deleteSessionPhotos(oldSessionId); } catch (error) { console.warn(error); }
+  }
+  render();
+  switchView('checkView');
+  toast('새 점검을 시작합니다');
 }
 
 function switchView(id) {
@@ -244,6 +251,7 @@ function renderProgress() {
   $('progressFill').style.width = `${progress}%`;
   $('statusText').textContent = state.current.completedAt ? '완료' : isBreak() ? '잠시 외출 중' : '점검 중';
   $('breakBtn').textContent = isBreak() ? '외출 해제' : '잠시 외출';
+  $('shareBtn').textContent = state.current.shareUrl ? '공유창 열기' : '공유하기';
 }
 
 function renderItems() {
@@ -541,19 +549,40 @@ async function shareSession(session, button = null) {
   if (!session?.completedAt || Object.keys(session.items || {}).length !== ITEMS.length) return toast('7개를 모두 완료해 주세요');
   if (!configured()) return toast('Firebase 설정이 없습니다');
 
+  // iPhone의 공유창은 사용자가 버튼을 누른 바로 그 순간에만 열 수 있다.
+  // 업로드가 끝난 뒤 자동 호출하면 NotAllowedError/요청 실패가 나므로,
+  // 링크가 준비된 경우에는 두 번째 탭에서 즉시 공유창을 연다.
+  if (session.shareUrl) {
+    return openNativeShare(session.shareUrl);
+  }
+
   shareBusy = true;
   const oldText = button?.textContent || '공유하기';
   if (button) {
     button.disabled = true;
-    button.textContent = '업로드 준비…';
+    button.textContent = '연결 확인…';
   }
-  toast('사진 7장을 업로드합니다');
+  toast('공유 링크를 준비합니다');
 
+  let id = '';
   try {
     const { db, storage, auth } = await services();
-    const id = generateId();
-    const photos = [];
+    id = generateId();
+    const checkRef = doc(db, 'checks', id);
 
+    // 사진을 올리기 전에 Firestore 권한부터 검사한다.
+    // 규칙이 잘못됐을 때 사진 7장만 Storage에 남는 현상을 막는다.
+    await setDoc(checkRef, {
+      ownerUid: auth.currentUser.uid,
+      public: true,
+      completedAt: session.completedAt,
+      startedAt: session.startedAt || null,
+      photos: [],
+      progress: 0,
+      createdAt: serverTimestamp()
+    });
+
+    const photos = [];
     for (let index = 0; index < ITEMS.length; index += 1) {
       const item = ITEMS[index];
       const meta = session.items[item.id];
@@ -572,16 +601,12 @@ async function shareSession(session, button = null) {
       });
     }
 
-    await setDoc(doc(db, 'checks', id), {
-      ownerUid: auth.currentUser.uid,
-      public: true,
-      completedAt: session.completedAt,
-      startedAt: session.startedAt || null,
+    await setDoc(checkRef, {
       photos,
       progress: 100,
-      createdAt: serverTimestamp(),
-      location: coords ? { accuracy: Math.round(coords.accuracy || 0) } : null
-    });
+      location: coords ? { accuracy: Math.round(coords.accuracy || 0) } : null,
+      updatedAt: serverTimestamp()
+    }, { merge: true });
 
     const url = new URL(location.href);
     url.search = '';
@@ -589,25 +614,55 @@ async function shareSession(session, button = null) {
     url.searchParams.set('share', id);
     const shareUrl = url.toString();
 
-    if (navigator.share) {
-      try {
-        await navigator.share({ title: '창신체크미 점검 기록', text: '작업실 퇴실 점검 사진입니다.', url: shareUrl });
-        toast('공유 완료');
-      } catch (error) {
-        if (error?.name !== 'AbortError') throw error;
-      }
-    } else {
-      await navigator.clipboard.writeText(shareUrl);
-      toast('공유 링크가 복사됐습니다');
+    session.shareId = id;
+    session.shareUrl = shareUrl;
+    if (state.current?.id === session.id) {
+      state.current.shareId = id;
+      state.current.shareUrl = shareUrl;
     }
+    const historyRecord = state.history.find(record => record.id === session.id);
+    if (historyRecord) {
+      historyRecord.shareId = id;
+      historyRecord.shareUrl = shareUrl;
+    }
+    save();
+    render();
+
+    if (button) button.textContent = '공유창 열기';
+    toast('링크 준비 완료 · 공유하기를 한 번 더 누르세요');
   } catch (error) {
     console.error(error);
-    toast(`업로드 실패 · ${firebaseErrorText(error)}`);
+    toast(`공유 준비 실패 · ${firebaseErrorText(error)}`);
   } finally {
     shareBusy = false;
     if (button) {
       button.disabled = false;
-      button.textContent = oldText;
+      button.textContent = session.shareUrl ? '공유창 열기' : oldText;
+    }
+  }
+}
+
+async function openNativeShare(shareUrl) {
+  try {
+    if (navigator.share) {
+      await navigator.share({
+        title: '창신체크미 점검 기록',
+        text: '작업실 퇴실 점검 사진입니다.',
+        url: shareUrl
+      });
+      toast('공유 완료');
+      return;
+    }
+    await navigator.clipboard.writeText(shareUrl);
+    toast('공유 링크가 복사됐습니다');
+  } catch (error) {
+    if (error?.name === 'AbortError') return;
+    console.error(error);
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      toast('공유창을 열지 못해 링크를 복사했습니다');
+    } catch {
+      prompt('이 링크를 복사하세요', shareUrl);
     }
   }
 }
@@ -624,6 +679,7 @@ function firebaseErrorText(error) {
   if (code.includes('network-request-failed') || !navigator.onLine) return '인터넷 연결 오류';
   if (code.includes('operation-not-allowed')) return '익명 로그인을 켜 주세요';
   if (code.includes('storage/')) return 'Storage 설정 또는 규칙 오류';
+  if (error?.name === 'NotAllowedError') return '공유창은 링크 준비 후 다시 눌러 주세요';
   return error?.message || 'Firebase 설정을 확인해 주세요';
 }
 
