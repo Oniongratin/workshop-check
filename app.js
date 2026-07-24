@@ -2,7 +2,7 @@ import { firebaseConfig } from './firebase-config.js';
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js';
 import { getAuth, signInAnonymously } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js';
 import { getFirestore, doc, setDoc, getDoc, deleteDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js';
-import { getStorage, ref, uploadBytes, getDownloadURL } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-storage.js';
+import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-storage.js';
 
 const ITEMS = [
   { id: 'f1_ac', name: '1층 에어컨', icon: '▱' },
@@ -341,7 +341,8 @@ function renderHistory() {
     $('historyList').innerHTML = '<div class="card"><p>아직 완료 기록이 없습니다.</p></div>';
     return;
   }
-  $('historyList').innerHTML = state.history.map(record => `<article class="card">
+  $('historyList').innerHTML = state.history.map(record => `<article class="card history-card">
+    <button class="record-delete" type="button" data-delete-record="${record.id}" aria-label="이 기록 삭제">×</button>
     <h3>${new Date(record.completedAt).toLocaleDateString('ko-KR')}</h3>
     <p>${formatTime(record.completedAt)} · ${Object.keys(record.items || {}).length}개 완료</p>
     <div class="card-actions"><button class="small-btn" data-view-record="${record.id}">사진 보기</button><button class="small-btn white" data-share-record="${record.id}">공유</button></div>
@@ -352,6 +353,51 @@ function renderHistory() {
     const record = state.history.find(entry => entry.id === button.dataset.shareRecord);
     shareSession(record, button);
   });
+  $$('[data-delete-record]').forEach(button => button.onclick = () => deleteHistoryRecord(button.dataset.deleteRecord, button));
+}
+
+async function deleteHistoryRecord(id, button) {
+  const record = state.history.find(entry => entry.id === id);
+  if (!record) return;
+
+  const dateLabel = record.completedAt
+    ? new Date(record.completedAt).toLocaleString('ko-KR')
+    : '선택한 날짜';
+  const ok = confirm(`${dateLabel} 기록을 삭제하시겠습니까?\n\n사진과 기록이 함께 삭제되며 되돌릴 수 없습니다.`);
+  if (!ok) return;
+
+  button.disabled = true;
+  const oldText = button.textContent;
+  button.textContent = '…';
+
+  try {
+    await deleteSessionPhotos(record.id);
+
+    state.history = state.history.filter(entry => entry.id !== id);
+    save();
+    renderHistory();
+
+    if (record.shareId && configured()) {
+      try {
+        const { db, storage, auth } = await services();
+        await Promise.allSettled(ITEMS.map(item =>
+          deleteObject(ref(storage, `checks/${auth.currentUser.uid}/${record.shareId}/${item.id}.jpg`))
+        ));
+        await deleteDoc(doc(db, 'checks', record.shareId));
+      } catch (error) {
+        console.warn('Firebase 공유본 정리 실패', error);
+        toast('기록은 삭제됐지만 공유본 정리에 실패했습니다');
+        return;
+      }
+    }
+
+    toast('기록이 삭제되었습니다');
+  } catch (error) {
+    console.error('기록 삭제 실패', error);
+    button.disabled = false;
+    button.textContent = oldText;
+    toast('삭제하지 못했습니다 · 다시 시도해 주세요');
+  }
 }
 
 async function showRecord(id) {
