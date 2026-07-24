@@ -1,300 +1,34 @@
 <!doctype html>
 <html lang="ko">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#1d4ed8" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-  <meta name="apple-mobile-web-app-title" content="창신체크미" />
-  <link rel="manifest" href="manifest.webmanifest" />
-  <link rel="apple-touch-icon" href="icon-192.png" />
-  <title>창신체크미</title>
-  <style>
-    :root {
-      font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
-      --bg: #f4f7fb;
-      --card: #ffffff;
-      --text: #0f172a;
-      --muted: #64748b;
-      --line: #dbe4ef;
-      --blue: #1d4ed8;
-      --blue-soft: #e8f0ff;
-      --green: #059669;
-      --green-soft: #e7f8f0;
-      --red: #dc2626;
-      --red-soft: #feeeee;
-      --shadow: 0 16px 32px rgba(15,23,42,.08);
-      color-scheme: light;
-    }
-    * { box-sizing: border-box; }
-    html, body { margin:0; background:var(--bg); color:var(--text); min-height:100%; }
-    body { min-height:100svh; }
-    button, input, select { font: inherit; }
-    .wrap { max-width: 720px; margin: 0 auto; padding: max(18px, env(safe-area-inset-top)) 16px calc(90px + env(safe-area-inset-bottom)); }
-    .appbar {
-      display:flex; align-items:center; justify-content:space-between; gap:14px; margin-bottom:14px;
-    }
-    .brand { display:flex; align-items:center; gap:12px; }
-    .logo {
-      width:52px; height:52px; border-radius:16px;
-      background: linear-gradient(160deg, #2563eb, #0f766e);
-      display:grid; place-items:center; color:white; box-shadow: var(--shadow); overflow:hidden;
-    }
-    .logo-inner { display:flex; flex-direction:column; align-items:center; justify-content:center; line-height:1; transform:translateY(1px); }
-    .logo-inner .txt { font-size:13px; font-weight:900; letter-spacing:-.04em; }
-    .logo-inner .check { font-size:16px; margin-top:2px; font-weight:900; }
-    .title h1 { margin:0; font-size:25px; letter-spacing:-.05em; }
-    .title p { margin:4px 0 0; color:var(--muted); font-size:13px; }
-    .pill {
-      border:1px solid var(--line); border-radius:999px; padding:10px 12px; background:#fff; font-size:13px; font-weight:800; white-space:nowrap;
-    }
-    .notice, .hero, .panel, .sheet, .record, .item-card, .settings-card {
-      background:var(--card); border:1px solid var(--line); border-radius:24px; box-shadow: var(--shadow);
-    }
-    .hero { padding:18px; margin-bottom:14px; }
-    .hero-top { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; }
-    .hero h2 { margin:0; font-size:24px; line-height:1.15; letter-spacing:-.05em; }
-    .hero .desc { margin:8px 0 0; color:var(--muted); line-height:1.55; }
-    .progress-box { margin-top:16px; }
-    .progress-label { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; font-size:13px; color:var(--muted); font-weight:700; }
-    .bar { height:12px; border-radius:999px; background:#e8edf4; overflow:hidden; }
-    .bar > div { height:100%; width:0; background:linear-gradient(90deg, #2563eb, #0ea5e9); transition: width .25s ease; }
-    .quick-actions { display:grid; grid-template-columns:repeat(2,1fr); gap:10px; margin-top:16px; }
-    .btn {
-      border:0; border-radius:16px; padding:15px 16px; font-weight:800; cursor:pointer; line-height:1.2;
-      display:inline-flex; justify-content:center; align-items:center; gap:8px;
-    }
-    .btn.primary { background:var(--blue); color:#fff; }
-    .btn.secondary { background:#fff; border:1px solid var(--line); color:var(--text); }
-    .btn.soft { background:var(--blue-soft); color:var(--blue); }
-    .btn.green { background:var(--green-soft); color:var(--green); }
-    .btn.red { background:var(--red-soft); color:var(--red); }
-    .btn.block { width:100%; }
-    .notice { padding:14px 16px; margin-bottom:14px; }
-    .notice strong { display:block; margin-bottom:4px; }
-    .notice p { margin:0; color:var(--muted); line-height:1.5; font-size:14px; }
-    .notice.warn { border-color:#f0d4a5; background:#fff9ed; }
-    .notice.ok { background:#f6fbff; }
-    .items-wrap { display:grid; gap:12px; }
-    .floor-title { display:flex; align-items:center; justify-content:space-between; margin:8px 2px 0; }
-    .floor-title h3 { margin:0; font-size:17px; letter-spacing:-.03em; }
-    .item-grid { display:grid; gap:10px; }
-    .item-card { padding:16px; display:flex; align-items:center; gap:14px; cursor:pointer; }
-    .item-card.done { border-color:#b8e1cf; background:#f5fcf8; }
-    .item-num {
-      flex:none; width:42px; height:42px; border-radius:14px; background:#eef3fb; display:grid; place-items:center; font-weight:900; color:#334155;
-    }
-    .item-card.done .item-num { background:#dcfce7; color:#047857; }
-    .item-main { flex:1; min-width:0; }
-    .item-main h4 { margin:0; font-size:17px; letter-spacing:-.03em; }
-    .item-main p { margin:5px 0 0; color:var(--muted); font-size:13px; line-height:1.45; }
-    .status { font-size:12px; font-weight:800; border-radius:999px; padding:7px 10px; background:#f1f5f9; color:#475569; white-space:nowrap; }
-    .item-card.done .status { background:#dcfce7; color:#047857; }
-    .tabs {
-      position:fixed; bottom:0; left:0; right:0; padding:10px 16px calc(10px + env(safe-area-inset-bottom)); background:rgba(244,247,251,.92); backdrop-filter: blur(18px); border-top:1px solid rgba(148,163,184,.25);
-    }
-    .tabs-inner { max-width:720px; margin:0 auto; display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
-    .tab { border:0; border-radius:18px; padding:12px 10px; background:#fff; color:var(--muted); font-weight:800; }
-    .tab.active { background:var(--blue); color:#fff; }
-    .view { display:none; }
-    .view.active { display:block; }
-    .record-list, .settings-list { display:grid; gap:12px; }
-    .record, .settings-card { padding:16px; }
-    .record-head { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; }
-    .record h4, .settings-card h4 { margin:0; font-size:17px; }
-    .record p, .settings-card p { margin:6px 0 0; color:var(--muted); line-height:1.5; }
-    .record-actions { display:grid; grid-template-columns:repeat(2,1fr); gap:10px; margin-top:14px; }
-    .empty { padding:18px; text-align:center; color:var(--muted); }
-    .settings-actions { display:grid; gap:10px; margin-top:14px; }
-    .field { margin-top:12px; }
-    .field label { display:block; font-size:13px; color:var(--muted); margin-bottom:6px; font-weight:700; }
-    .field input, .field select {
-      width:100%; padding:13px 14px; border-radius:14px; border:1px solid var(--line); background:#fff;
-    }
-    .muted-note { margin-top:10px; font-size:12px; color:var(--muted); line-height:1.55; }
-    .sheet-backdrop {
-      display:none; position:fixed; inset:0; background:rgba(15,23,42,.48); z-index:30; padding:16px; align-items:flex-end;
-    }
-    .sheet-backdrop.show { display:flex; }
-    .sheet {
-      width:min(720px, 100%); margin:0 auto; padding:18px; border-radius:28px 28px 22px 22px; max-height:88svh; overflow:auto;
-    }
-    .sheet h3 { margin:0; font-size:22px; letter-spacing:-.05em; }
-    .sheet p { margin:8px 0 0; color:var(--muted); line-height:1.5; }
-    .camera-box { margin-top:16px; border:1.5px dashed #bfdbfe; border-radius:20px; background:#f8fbff; padding:14px; text-align:center; }
-    .camera-trigger { width:100%; }
-    input[type=file] { display:none; }
-    .preview { display:none; margin-top:16px; }
-    .preview.show { display:block; }
-    .preview img { width:100%; border-radius:18px; border:1px solid var(--line); max-height:340px; object-fit:cover; }
-    .preview-meta { margin-top:8px; color:var(--muted); font-size:13px; }
-    .sheet-actions { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:16px; }
-    .close-top { margin-left:auto; background:#eff6ff; color:var(--blue); border:0; border-radius:12px; padding:9px 12px; font-weight:800; }
-    .detail-grid { display:grid; gap:12px; margin-top:14px; }
-    .detail-item { border:1px solid var(--line); border-radius:18px; padding:12px; }
-    .detail-item img { width:100%; border-radius:14px; margin-top:8px; }
-    .detail-meta { color:var(--muted); font-size:13px; margin-top:6px; }
-    .toast {
-      position:fixed; left:50%; bottom:108px; transform:translateX(-50%) translateY(20px); min-width:260px; max-width:calc(100vw - 28px);
-      background:#0f172a; color:#fff; padding:14px 16px; border-radius:16px; box-shadow:0 22px 44px rgba(2,6,23,.35);
-      opacity:0; pointer-events:none; transition: all .24s ease; z-index:60;
-    }
-    .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
-    .footer-note { margin-top:16px; color:var(--muted); font-size:12px; line-height:1.6; }
-
-    .public-wrap { max-width:720px; margin:0 auto; padding:24px 16px 50px; }
-    .public-head { background:linear-gradient(160deg,#2563eb,#0f766e); color:#fff; border-radius:26px; padding:22px; box-shadow:var(--shadow); }
-    .public-head h1 { margin:0; font-size:28px; letter-spacing:-.05em; }
-    .public-head p { margin:8px 0 0; opacity:.9; line-height:1.5; }
-    .public-grid { display:grid; gap:14px; margin-top:16px; }
-    .public-photo { background:#fff; border:1px solid var(--line); border-radius:22px; padding:14px; box-shadow:var(--shadow); }
-    .public-photo h3 { margin:0 0 8px; font-size:17px; }
-    .public-photo img { width:100%; border-radius:16px; display:block; }
-    .public-meta { margin-top:8px; color:var(--muted); font-size:13px; }
-    .loading-card { margin:40px auto; max-width:560px; background:#fff; border:1px solid var(--line); border-radius:22px; padding:24px; text-align:center; box-shadow:var(--shadow); }
-
-    @media (max-width: 560px) {
-      .quick-actions, .record-actions, .sheet-actions { grid-template-columns:1fr; }
-      .hero-top { flex-direction:column; }
-      .pill { align-self:flex-start; }
-      .title h1 { font-size:23px; }
-      .hero h2 { font-size:22px; }
-    }
-  </style>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<meta name="theme-color" content="#000000" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="창신체크미" />
+<link rel="manifest" href="manifest.webmanifest" />
+<link rel="apple-touch-icon" href="icon-192.png" />
+<title>창신체크미</title>
+<style>
+:root{font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo",sans-serif;color-scheme:dark;--bg:#000;--card:#101010;--line:#292929;--text:#fff;--muted:#8e8e93}
+*{box-sizing:border-box}html,body{margin:0;background:var(--bg);color:var(--text);min-height:100%}body{min-height:100svh}button,input,select{font:inherit}.app{max-width:640px;margin:auto;padding:max(18px,env(safe-area-inset-top)) 18px calc(92px + env(safe-area-inset-bottom))}.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:28px}.brand{display:flex;gap:12px;align-items:center}.mark{width:48px;height:48px;border:1px solid #333;border-radius:15px;background:linear-gradient(145deg,#1d1d1f,#050505);display:grid;place-items:center;box-shadow:inset 0 1px 0 rgba(255,255,255,.12),0 10px 28px rgba(0,0,0,.5)}.mark span{font-size:21px;font-weight:800;letter-spacing:-.08em}.title h1{font-size:21px;margin:0;letter-spacing:-.05em}.title p{font-size:12px;color:var(--muted);margin:3px 0 0}.icon-btn{width:42px;height:42px;border-radius:50%;border:1px solid var(--line);background:#0c0c0c;color:white;font-size:18px}.hero{text-align:center;padding:6px 0 28px}.percent{font-size:68px;font-weight:750;letter-spacing:-.07em;line-height:1}.percent small{font-size:28px;margin-left:3px}.sub{margin-top:10px;color:var(--muted);font-size:14px}.bar{height:6px;background:#242424;border-radius:999px;overflow:hidden;margin:22px 0 8px}.fill{height:100%;background:#fff;width:0;transition:width .35s cubic-bezier(.2,.8,.2,1)}.bar-label{display:flex;justify-content:space-between;color:#6f6f73;font-size:12px}.section-title{font-size:13px;color:#76767b;margin:20px 0 8px}.list{border-top:1px solid var(--line)}.item{width:100%;display:flex;align-items:center;gap:13px;padding:16px 2px;border:0;border-bottom:1px solid var(--line);background:transparent;color:white;text-align:left}.item:active{opacity:.55}.item-icon{width:30px;text-align:center;font-size:19px}.item-main{flex:1}.item-name{font-size:16px;font-weight:600;letter-spacing:-.03em}.item-meta{font-size:12px;color:var(--muted);margin-top:3px}.state{width:24px;height:24px;border-radius:50%;border:1.5px solid #555;display:grid;place-items:center;font-size:14px}.item.done .state{border-color:white;background:white;color:black}.controls{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:24px}.control{border:1px solid var(--line);border-radius:14px;padding:14px;background:#0b0b0b;color:white;font-weight:650}.control.primary{background:white;color:black;border-color:white}.hidden{display:none!important}.tabs{position:fixed;left:0;right:0;bottom:0;background:rgba(0,0,0,.88);backdrop-filter:blur(20px);border-top:1px solid #1d1d1d;padding:9px 16px calc(9px + env(safe-area-inset-bottom))}.tabs-in{max-width:640px;margin:auto;display:grid;grid-template-columns:repeat(3,1fr)}.tab{border:0;background:transparent;color:#67676c;padding:8px;font-size:12px}.tab b{display:block;font-size:19px;margin-bottom:3px}.tab.active{color:white}.view{display:none}.view.active{display:block}.card{border:1px solid var(--line);border-radius:18px;padding:16px;background:#0b0b0b;margin-bottom:12px}.card h3{margin:0;font-size:16px}.card p{color:var(--muted);font-size:13px;line-height:1.5}.card-actions{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:12px}.small-btn{border:1px solid #333;background:#111;color:white;border-radius:12px;padding:12px;font-weight:650}.small-btn.white{background:white;color:black}.photos{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}.photos img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:10px}.field{margin-top:14px}.field label{font-size:12px;color:var(--muted);display:block;margin-bottom:6px}.field input,.field select{width:100%;border:1px solid #333;background:#111;color:white;border-radius:12px;padding:13px}.toast{position:fixed;left:50%;bottom:105px;transform:translate(-50%,20px);opacity:0;background:white;color:black;border-radius:999px;padding:12px 17px;font-weight:700;transition:.2s;z-index:20;white-space:nowrap;max-width:90vw;overflow:hidden;text-overflow:ellipsis}.toast.show{opacity:1;transform:translate(-50%,0)}.complete{position:fixed;inset:0;background:black;display:none;z-index:30;align-items:center;justify-content:center;text-align:center;padding:24px}.complete.show{display:flex}.checkring{width:112px;height:112px;border:3px solid white;border-radius:50%;display:grid;place-items:center;font-size:58px;margin:auto}.complete h2{font-size:28px;margin:22px 0 8px}.complete p{color:var(--muted);margin:0 0 28px}.complete button{width:100%;max-width:320px;border:0;border-radius:14px;padding:15px;background:white;color:black;font-weight:750;margin-top:10px}.public-wrap{max-width:640px;margin:auto;padding:24px 18px}.public-photo{border-bottom:1px solid #252525;padding:18px 0}.public-photo img{width:100%;border-radius:14px}.public-meta{color:#8e8e93;font-size:12px;margin-top:8px}.loading-card{text-align:center;padding:50px 20px;color:#aaa}input[type=file]{display:none}
+</style>
 </head>
 <body>
-  <div id="publicShareRoot" style="display:none"></div>
-  <div class="wrap" id="appRoot">
-    <header class="appbar">
-      <div class="brand">
-        <div class="logo" aria-hidden="true">
-          <div class="logo-inner"><div class="txt">창신</div><div class="check">✓</div></div>
-        </div>
-        <div class="title">
-          <h1>창신체크미</h1>
-          <p>작업실 퇴실 점검을 사진으로 남기는 개인용 체크 앱</p>
-        </div>
-      </div>
-      <div class="pill" id="headerCount">0 / 7 완료</div>
-    </header>
-
-    <div class="notice ok" id="monitorNotice">
-      <strong>위치 경고 안내</strong>
-      <p id="monitorText">웹앱이 열려 있는 동안에는 작업실에서 멀어질 때 경고를 띄울 수 있어요. 아이폰에서 완전한 백그라운드 즉시 경고는 웹앱만으로 제한이 있으니, 진짜 즉각 경고는 단축어 자동화와 같이 쓰는 걸 추천해요.</p>
-    </div>
-
-    <section class="hero">
-      <div class="hero-top">
-        <div>
-          <h2 id="heroTitle">원하는 항목부터 눌러서 사진 찍기</h2>
-          <p class="desc" id="heroDesc">1층부터든 2층부터든 상관없이, 아래 카드 중 필요한 곳을 바로 눌러 사진을 찍어 주세요.</p>
-        </div>
-        <div class="pill" id="sessionStatus">점검 진행 중</div>
-      </div>
-      <div class="progress-box">
-        <div class="progress-label"><span id="progressText">0개 완료</span><span id="breakText">잠시 외출 꺼짐</span></div>
-        <div class="bar"><div id="progressBar"></div></div>
-      </div>
-      <div class="quick-actions">
-        <button class="btn primary" id="newSessionBtn" type="button">새 점검 시작</button>
-        <button class="btn soft" id="breakBtn" type="button">잠시 외출</button>
-        <button class="btn secondary" id="shareCurrentBtn" type="button">현재 점검 공유</button>
-        <button class="btn secondary" id="requestLocationBtn" type="button">현재 위치 권한 확인</button>
-      </div>
-    </section>
-
-    <section id="checkView" class="view active">
-      <div class="items-wrap" id="itemsWrap"></div>
-      <p class="footer-note">각 카드를 눌러 바로 촬영할 수 있어요. 이미 완료한 항목을 다시 누르면 사진을 덮어써서 수정할 수 있습니다.</p>
-    </section>
-
-    <section id="historyView" class="view">
-      <div class="record-list" id="recordList"></div>
-      <p class="footer-note">기록은 이 기기 안에만 저장됩니다. Safari 데이터 삭제나 웹앱 삭제 시 사라질 수 있습니다.</p>
-    </section>
-
-    <section id="settingsView" class="view">
-      <div class="settings-list">
-        <div class="settings-card">
-          <h4>작업실 위치 설정</h4>
-          <p id="workshopInfo">아직 작업실 위치가 저장되지 않았습니다.</p>
-          <div class="field">
-            <label for="radiusInput">경고 반경 (미터)</label>
-            <input id="radiusInput" type="number" min="30" max="500" step="10" value="120" />
-          </div>
-          <div class="settings-actions">
-            <button class="btn primary block" id="saveWorkshopBtn" type="button">현재 위치를 작업실로 저장</button>
-            <button class="btn secondary block" id="clearWorkshopBtn" type="button">작업실 위치 지우기</button>
-          </div>
-          <p class="muted-note">이 설정은 웹앱이 열려 있는 동안의 위치 경고에 사용됩니다. 아이폰에서 앱을 닫은 상태까지 포함한 완전한 즉시 경고는 단축어 자동화와 함께 쓰는 것이 가장 안정적입니다.</p>
-        </div>
-
-        <div class="settings-card">
-          <h4>잠시 외출 설정</h4>
-          <p>밥 먹으러 나가거나 잠깐 외출할 때는 잠시 외출을 켜 두면 경고를 잠깐 끌 수 있어요.</p>
-          <div class="field">
-            <label for="breakSelect">기본 잠시 외출 시간</label>
-            <select id="breakSelect">
-              <option value="30">30분</option>
-              <option value="60">1시간</option>
-              <option value="120">2시간</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="settings-card">
-          <h4>공유 기능 안내</h4>
-          <p>현재 버전의 공유는 문자 내용을 만들어 주는 방식이에요. 다른 사람이 링크를 눌러 사진까지 직접 보는 기능은 서버 저장소가 필요한 2차 버전에서 넣을 수 있어요.</p>
-          <p class="muted-note">원하면 다음 단계에서 Firebase 또는 Supabase를 붙여서, 공유 링크를 누르면 사진 기록 페이지가 열리도록 확장할 수 있습니다.</p>
-        </div>
-      </div>
-    </section>
-  </div>
-
-  <div class="tabs">
-    <div class="tabs-inner">
-      <button class="tab active" data-view="checkView" type="button">점검</button>
-      <button class="tab" data-view="historyView" type="button">기록</button>
-      <button class="tab" data-view="settingsView" type="button">설정</button>
-    </div>
-  </div>
-
-  <div class="sheet-backdrop" id="cameraSheetBackdrop" aria-hidden="true">
-    <div class="sheet">
-      <button class="close-top" type="button" id="closeCameraSheetBtn">닫기</button>
-      <h3 id="cameraSheetTitle">항목 촬영</h3>
-      <p id="cameraSheetDesc">실제로 확인한 상태가 보이도록 사진을 찍어 주세요.</p>
-      <div class="camera-box">
-        <button class="btn primary camera-trigger" id="cameraTriggerBtn" type="button">📷 카메라 열기</button>
-        <input id="cameraInput" type="file" accept="image/*" capture="environment" />
-        <div class="preview" id="cameraPreview">
-          <img id="previewImg" alt="촬영 미리보기" />
-          <div class="preview-meta" id="previewMeta"></div>
-          <div class="sheet-actions">
-            <button class="btn secondary" id="retakeBtn" type="button">다시 찍기</button>
-            <button class="btn primary" id="savePhotoBtn" type="button" disabled>이 사진으로 저장</button>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <div class="sheet-backdrop" id="recordSheetBackdrop" aria-hidden="true">
-    <div class="sheet">
-      <button class="close-top" type="button" id="closeRecordSheetBtn">닫기</button>
-      <h3 id="recordSheetTitle">기록 보기</h3>
-      <p id="recordSheetDesc">날짜별로 저장된 사진 기록을 확인할 수 있어요.</p>
-      <div class="detail-grid" id="recordDetailGrid"></div>
-      <div class="sheet-actions">
-        <button class="btn secondary" id="shareRecordBtn" type="button">이 기록 공유</button>
-        <button class="btn primary" id="duplicateSessionBtn" type="button">이 기록 기준으로 새 점검 시작</button>
-      </div>
-    </div>
-  </div>
-
-  <div class="toast" id="toast"></div>
-
-<script type="module" src="./app.js"></script>
-</body>
-</html>
+<div id="appRoot" class="app">
+<header class="top"><div class="brand"><div class="mark"><span>창신✓</span></div><div class="title"><h1>창신체크미</h1><p>WORKSHOP CHECK</p></div></div><button id="quickSettings" class="icon-btn">⚙</button></header>
+<section id="checkView" class="view active">
+<div class="hero"><div class="percent"><span id="percent">0</span><small>%</small></div><div id="countText" class="sub">0 / 7 완료</div><div class="bar"><div id="progressFill" class="fill"></div></div><div class="bar-label"><span>진행률</span><span id="statusText">점검 중</span></div></div>
+<div class="section-title">항목을 누르면 바로 카메라가 열립니다</div><div id="itemList" class="list"></div>
+<div class="controls"><button id="breakBtn" class="control">잠시 외출</button><button id="shareBtn" class="control primary">공유하기</button></div>
+<input id="cameraInput" type="file" accept="image/*" capture="environment" />
+</section>
+<section id="historyView" class="view"><div id="historyList"></div></section>
+<section id="settingsView" class="view"><div class="card"><h3>작업실 위치</h3><p id="workshopInfo">아직 저장되지 않음</p><div class="field"><label>경고 반경</label><input id="radiusInput" type="number" value="120" min="30" max="500" /></div><div class="card-actions"><button id="saveWorkshopBtn" class="small-btn white">현재 위치 저장</button><button id="clearWorkshopBtn" class="small-btn">위치 지우기</button></div></div><div class="card"><h3>잠시 외출</h3><div class="field"><label>기본 시간</label><select id="breakSelect"><option value="30">30분</option><option value="60">1시간</option><option value="120">2시간</option></select></div></div><div class="card"><h3>새 점검</h3><p>현재 점검을 비우고 처음부터 다시 시작합니다.</p><button id="newSessionBtn" class="small-btn white" style="width:100%">새 점검 시작</button></div></section>
+</div>
+<nav class="tabs" id="tabs"><div class="tabs-in"><button class="tab active" data-view="checkView"><b>⌂</b>홈</button><button class="tab" data-view="historyView"><b>▣</b>기록</button><button class="tab" data-view="settingsView"><b>⚙</b>설정</button></div></nav>
+<div id="toast" class="toast"></div>
+<div id="completeScreen" class="complete"><div><div class="checkring">✓</div><h2>모든 항목 완료</h2><p>퇴실 준비가 끝났습니다.</p><button id="completeHistory">기록 보기</button><button id="completeClose">홈으로</button></div></div>
+<script type="module" src="app.js"></script>
+</body></html>
