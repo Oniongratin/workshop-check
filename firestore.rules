@@ -1,12 +1,16 @@
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
-    // 공유 ID는 충분히 긴 무작위 값으로 생성됩니다.
-    // 링크를 아는 사람만 해당 기록을 읽을 수 있습니다.
-    match /shares/{shareId} {
-      allow read: if true;
-      allow create: if request.auth != null;
-      allow update, delete: if request.auth != null && resource.data.ownerUid == request.auth.uid;
+    match /checks/{checkId} {
+      allow create: if request.auth != null
+                    && request.resource.data.ownerUid == request.auth.uid;
+
+      allow update, delete: if request.auth != null
+                            && resource.data.ownerUid == request.auth.uid;
+
+      allow read: if resource.data.public == true
+                  || (request.auth != null && resource.data.ownerUid == request.auth.uid);
     }
   }
 }

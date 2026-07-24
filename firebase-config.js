@@ -1,9 +1,9 @@
-// Firebase 콘솔 > 프로젝트 설정 > 내 앱 > SDK 설정 및 구성에서 받은 값을 붙여 넣으세요.
 export const firebaseConfig = {
-  apiKey: "여기에_API_KEY",
-  authDomain: "여기에_PROJECT_ID.firebaseapp.com",
-  projectId: "여기에_PROJECT_ID",
-  storageBucket: "여기에_STORAGE_BUCKET",
-  messagingSenderId: "여기에_MESSAGING_SENDER_ID",
-  appId: "여기에_APP_ID"
+  apiKey: "AIzaSyBsbq3X_KLL3QFfKtIj19IkShEdzF9q-Ls",
+  authDomain: "changsin-checkme.firebaseapp.com",
+  projectId: "changsin-checkme",
+  storageBucket: "changsin-checkme.firebasestorage.app",
+  messagingSenderId: "125388920581",
+  appId: "1:125388920581:web:f52dd3c57b8349ab87096c",
+  measurementId: "G-Z93SHR1PBY"
 };

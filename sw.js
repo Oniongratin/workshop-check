@@ -1,4 +1,4 @@
-const CACHE = 'changsin-checkme-v8';
+const CACHE = 'changsin-checkme-v11';
 const ASSETS = [
   './',
   './index.html',
@@ -20,11 +20,16 @@ self.addEventListener('activate', event => {
   self.clients.claim();
 });
 self.addEventListener('fetch', event => {
-  event.respondWith(
-    caches.match(event.request).then(cached => cached || fetch(event.request).then(response => {
+  if (event.request.method !== 'GET') return;
+  const url = new URL(event.request.url);
+  const isAppCode = url.origin === location.origin && (url.pathname.endsWith('/') || /\.(html|js|webmanifest)$/.test(url.pathname));
+  if (isAppCode) {
+    event.respondWith(fetch(event.request).then(response => {
       const clone = response.clone();
       caches.open(CACHE).then(cache => cache.put(event.request, clone));
       return response;
-    }).catch(() => caches.match('./index.html')))
-  );
+    }).catch(() => caches.match(event.request).then(r => r || caches.match('./index.html'))));
+    return;
+  }
+  event.respondWith(caches.match(event.request).then(cached => cached || fetch(event.request)));
 });
