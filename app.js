@@ -214,17 +214,30 @@ function setup() {
 }
 
 async function resetCurrentSession() {
-  const hasProgress = Object.keys(state.current?.items || {}).length > 0;
-  if (hasProgress && !confirm('현재 점검을 지우고 처음부터 다시 시작할까요?')) return;
-  const oldSessionId = state.current?.id;
+  const current = state.current;
+  const hasProgress = Object.keys(current?.items || {}).length > 0;
+  const isCompleted = Boolean(current?.completedAt);
+
+  // 완료된 점검은 history와 같은 session id의 사진을 함께 사용한다.
+  // 따라서 새 점검을 시작할 때 완료 기록의 사진은 절대 삭제하지 않는다.
+  if (!isCompleted && hasProgress) {
+    const ok = confirm('현재 진행 중인 점검만 초기화할까요?
+완료된 날짜별 기록과 사진은 삭제되지 않습니다.');
+    if (!ok) return;
+  }
+
+  const abandonedDraftId = !isCompleted ? current?.id : null;
   state.current = newSession();
   save();
-  if (oldSessionId) {
-    try { await deleteSessionPhotos(oldSessionId); } catch (error) { console.warn(error); }
+
+  // 아직 완료하지 않은 임시 촬영분만 정리한다. 완료 기록 사진은 건드리지 않는다.
+  if (abandonedDraftId) {
+    try { await deleteSessionPhotos(abandonedDraftId); } catch (error) { console.warn('임시 사진 정리 실패', error); }
   }
+
   render();
   switchView('checkView');
-  toast('새 점검을 시작합니다');
+  toast('새 점검을 시작합니다 · 기존 기록은 보존됨');
 }
 
 function switchView(id) {
@@ -318,7 +331,7 @@ function complete() {
   const existing = state.history.findIndex(record => record.id === state.current.id);
   if (existing >= 0) state.history.splice(existing, 1);
   state.history.unshift(clone(state.current));
-  state.history = state.history.slice(0, 12);
+  // 날짜별 완료 기록은 핵심 자료이므로 개수 제한 없이 보존한다.
   save();
   navigator.vibrate?.([100, 50, 100, 50, 160]);
   $('completeScreen').classList.add('show');
