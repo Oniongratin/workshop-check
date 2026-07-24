@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#111111" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="퇴실체크" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
+  <title>작업실 퇴실체크</title>
+  <style>
+    :root { font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", sans-serif; color-scheme: dark; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100svh; background:#0b0b0c; color:#f6f6f6; }
+    main { max-width: 560px; margin: 0 auto; padding: max(22px, env(safe-area-inset-top)) 18px max(28px, env(safe-area-inset-bottom)); }
+    header { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:18px; }
+    h1 { font-size:24px; margin:0; letter-spacing:-.04em; }
+    .badge { background:#242428; border:1px solid #37373d; border-radius:999px; padding:7px 10px; font-size:13px; }
+    .progress { height:10px; background:#242428; border-radius:999px; overflow:hidden; margin:16px 0 24px; }
+    .progress > div { height:100%; width:0; background:#f5f5f5; transition:width .25s ease; }
+    .card { background:#171719; border:1px solid #303035; border-radius:24px; padding:20px; box-shadow:0 18px 45px rgba(0,0,0,.3); }
+    .step { font-size:13px; color:#a7a7ad; margin-bottom:8px; }
+    h2 { font-size:30px; line-height:1.15; margin:0 0 10px; letter-spacing:-.055em; }
+    .desc { color:#bdbdc4; line-height:1.55; margin:0 0 18px; }
+    .camera { display:block; width:100%; border-radius:18px; background:#f4f4f5; color:#111; padding:17px; text-align:center; font-weight:800; font-size:18px; cursor:pointer; }
+    input[type=file] { position:absolute; width:1px; height:1px; opacity:0; pointer-events:none; }
+    .preview { display:none; margin-top:16px; }
+    .preview img { width:100%; max-height:360px; object-fit:cover; border-radius:18px; border:1px solid #3a3a40; }
+    .meta { font-size:13px; color:#aaaab1; margin-top:9px; }
+    .actions { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:14px; }
+    button { border:0; border-radius:16px; padding:15px 14px; font-weight:800; font-size:16px; }
+    .secondary { background:#2b2b30; color:#fff; }
+    .primary { background:#fff; color:#111; }
+    .primary:disabled { opacity:.3; }
+    .list { margin-top:20px; display:grid; gap:8px; }
+    .item { display:flex; align-items:center; gap:10px; padding:12px 14px; background:#151517; border-radius:14px; color:#a7a7ad; }
+    .item.done { color:#fff; }
+    .dot { width:22px; height:22px; border-radius:50%; display:grid; place-items:center; background:#2a2a2e; font-size:13px; }
+    .item.done .dot { background:#fff; color:#111; }
+    .complete { display:none; text-align:center; padding:28px 10px; }
+    .complete .big { font-size:62px; }
+    .complete h2 { margin-top:12px; }
+    .history { margin-top:18px; }
+    .history h3 { margin:0 0 10px; font-size:17px; }
+    .history-row { background:#151517; border-radius:14px; padding:12px 14px; color:#c7c7cc; margin-bottom:8px; font-size:14px; }
+    .reset { margin-top:20px; width:100%; background:#2b2b30; color:#fff; }
+    .hint { font-size:12px; color:#85858c; line-height:1.5; margin-top:14px; }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>작업실 퇴실체크</h1>
+    <span class="badge" id="counter">0 / 7</span>
+  </header>
+  <div class="progress"><div id="bar"></div></div>
+
+  <section class="card" id="checkCard">
+    <div class="step" id="stepLabel">1번째 확인</div>
+    <h2 id="title">1층 에어컨</h2>
+    <p class="desc">실제로 꺼져 있는 상태가 사진에 보이게 촬영하세요. 사진이 없으면 다음 단계로 넘어갈 수 없습니다.</p>
+
+    <label class="camera" for="cameraInput">📷 지금 사진 찍기</label>
+    <input id="cameraInput" type="file" accept="image/*" capture="environment" />
+
+    <div class="preview" id="preview">
+      <img id="previewImg" alt="촬영 사진 미리보기" />
+      <div class="meta" id="photoMeta"></div>
+      <div class="actions">
+        <button class="secondary" id="retakeBtn" type="button">다시 찍기</button>
+        <button class="primary" id="nextBtn" type="button" disabled>확인 완료</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="card complete" id="completeCard">
+    <div class="big">✅</div>
+    <h2>모든 점검 완료</h2>
+    <p class="desc" id="completeText"></p>
+    <button class="primary" id="saveSummaryBtn" type="button" style="width:100%">완료 기록 공유하기</button>
+    <button class="reset" id="newCheckBtn" type="button">새 점검 시작</button>
+  </section>
+
+  <div class="list" id="list"></div>
+
+  <section class="history" id="historySection">
+    <h3>최근 완료 기록</h3>
+    <div id="history"></div>
+  </section>
+
+  <p class="hint">촬영 사진은 이 웹앱의 기기 내부 저장소에만 보관됩니다. Safari 데이터 삭제, 웹앱 삭제 또는 저장공간 정리 시 사라질 수 있습니다.</p>
+</main>
+<script>
+const ITEMS = [
+  '1층 에어컨', '1층 실내조명', '1층 실외조명', '1층 문 잠금',
+  '2층 에어컨', '2층 실내조명', '2층 문 잠금'
+];
+let current = 0;
+let session = [];
+let objectUrl = null;
+
+const $ = id => document.getElementById(id);
+const cameraInput = $('cameraInput');
+const preview = $('preview');
+const previewImg = $('previewImg');
+const nextBtn = $('nextBtn');
+
+function render() {
+  $('counter').textContent = `${current} / ${ITEMS.length}`;
+  $('bar').style.width = `${(current / ITEMS.length) * 100}%`;
+  $('list').innerHTML = ITEMS.map((name, i) => `
+    <div class="item ${i < current ? 'done' : ''}">
+      <span class="dot">${i < current ? '✓' : i + 1}</span><span>${name}</span>
+    </div>`).join('');
+  if (current < ITEMS.length) {
+    $('stepLabel').textContent = `${current + 1}번째 확인`;
+    $('title').textContent = ITEMS[current];
+  }
+  renderHistory();
+}
+
+cameraInput.addEventListener('change', async () => {
+  const file = cameraInput.files && cameraInput.files[0];
+  if (!file) return;
+  if (objectUrl) URL.revokeObjectURL(objectUrl);
+  objectUrl = URL.createObjectURL(file);
+  previewImg.src = objectUrl;
+  const stamp = new Date();
+  $('photoMeta').textContent = `${stamp.toLocaleString('ko-KR')} · ${(file.size / 1024 / 1024).toFixed(1)}MB`;
+  preview.style.display = 'block';
+  nextBtn.disabled = false;
+  nextBtn.dataset.timestamp = stamp.toISOString();
+});
+
+$('retakeBtn').addEventListener('click', () => {
+  cameraInput.value = '';
+  preview.style.display = 'none';
+  nextBtn.disabled = true;
+  cameraInput.click();
+});
+
+nextBtn.addEventListener('click', async () => {
+  const file = cameraInput.files && cameraInput.files[0];
+  if (!file) return;
+  const dataUrl = await compressImage(file);
+  session.push({ item: ITEMS[current], timestamp: nextBtn.dataset.timestamp, image: dataUrl });
+  current += 1;
+  cameraInput.value = '';
+  preview.style.display = 'none';
+  nextBtn.disabled = true;
+  if (navigator.vibrate) navigator.vibrate(80);
+  if (current >= ITEMS.length) finish();
+  else render();
+});
+
+function compressImage(file) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      const max = 1280;
+      const scale = Math.min(1, max / Math.max(img.width, img.height));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+      URL.revokeObjectURL(url);
+      resolve(canvas.toDataURL('image/jpeg', .72));
+    };
+    img.onerror = reject;
+    img.src = url;
+  });
+}
+
+function finish() {
+  const completedAt = new Date().toISOString();
+  const history = JSON.parse(localStorage.getItem('workshopHistory') || '[]');
+  history.unshift({ completedAt, count: session.length });
+  localStorage.setItem('workshopHistory', JSON.stringify(history.slice(0, 20)));
+  try { localStorage.setItem('lastWorkshopSession', JSON.stringify({ completedAt, photos: session })); } catch (_) {}
+  $('checkCard').style.display = 'none';
+  $('completeCard').style.display = 'block';
+  $('completeText').textContent = `${new Date(completedAt).toLocaleString('ko-KR')}에 7개 항목을 모두 촬영했습니다. 이제 귀가해도 됩니다.`;
+  $('counter').textContent = `7 / 7`;
+  $('bar').style.width = '100%';
+  render();
+  if (navigator.vibrate) navigator.vibrate([120,80,120]);
+}
+
+$('saveSummaryBtn').addEventListener('click', async () => {
+  const text = `작업실 퇴실 점검 완료\n${new Date().toLocaleString('ko-KR')}\n\n${ITEMS.map(x => `✅ ${x}`).join('\n')}`;
+  if (navigator.share) await navigator.share({ title:'작업실 퇴실 점검 완료', text });
+  else { await navigator.clipboard.writeText(text); alert('완료 기록을 복사했습니다.'); }
+});
+
+$('newCheckBtn').addEventListener('click', () => {
+  current = 0; session = [];
+  $('checkCard').style.display = 'block';
+  $('completeCard').style.display = 'none';
+  render();
+});
+
+function renderHistory() {
+  const history = JSON.parse(localStorage.getItem('workshopHistory') || '[]');
+  $('history').innerHTML = history.length ? history.map(h => `<div class="history-row">✅ ${new Date(h.completedAt).toLocaleString('ko-KR')} · ${h.count}개 완료</div>`).join('') : '<div class="history-row">아직 완료 기록이 없습니다.</div>';
+}
+
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js');
+render();
+</script>
+</body>
+</html>
