@@ -3,212 +3,298 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#111111" />
+  <meta name="theme-color" content="#1d4ed8" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="퇴실체크" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="창신체크미" />
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="apple-touch-icon" href="icon-192.png" />
-  <title>작업실 퇴실체크</title>
+  <title>창신체크미</title>
   <style>
-    :root { font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", sans-serif; color-scheme: dark; }
+    :root {
+      font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+      --bg: #f4f7fb;
+      --card: #ffffff;
+      --text: #0f172a;
+      --muted: #64748b;
+      --line: #dbe4ef;
+      --blue: #1d4ed8;
+      --blue-soft: #e8f0ff;
+      --green: #059669;
+      --green-soft: #e7f8f0;
+      --red: #dc2626;
+      --red-soft: #feeeee;
+      --shadow: 0 16px 32px rgba(15,23,42,.08);
+      color-scheme: light;
+    }
     * { box-sizing: border-box; }
-    body { margin: 0; min-height: 100svh; background:#0b0b0c; color:#f6f6f6; }
-    main { max-width: 560px; margin: 0 auto; padding: max(22px, env(safe-area-inset-top)) 18px max(28px, env(safe-area-inset-bottom)); }
-    header { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:18px; }
-    h1 { font-size:24px; margin:0; letter-spacing:-.04em; }
-    .badge { background:#242428; border:1px solid #37373d; border-radius:999px; padding:7px 10px; font-size:13px; }
-    .progress { height:10px; background:#242428; border-radius:999px; overflow:hidden; margin:16px 0 24px; }
-    .progress > div { height:100%; width:0; background:#f5f5f5; transition:width .25s ease; }
-    .card { background:#171719; border:1px solid #303035; border-radius:24px; padding:20px; box-shadow:0 18px 45px rgba(0,0,0,.3); }
-    .step { font-size:13px; color:#a7a7ad; margin-bottom:8px; }
-    h2 { font-size:30px; line-height:1.15; margin:0 0 10px; letter-spacing:-.055em; }
-    .desc { color:#bdbdc4; line-height:1.55; margin:0 0 18px; }
-    .camera { display:block; width:100%; border-radius:18px; background:#f4f4f5; color:#111; padding:17px; text-align:center; font-weight:800; font-size:18px; cursor:pointer; }
-    input[type=file] { position:absolute; width:1px; height:1px; opacity:0; pointer-events:none; }
+    html, body { margin:0; background:var(--bg); color:var(--text); min-height:100%; }
+    body { min-height:100svh; }
+    button, input, select { font: inherit; }
+    .wrap { max-width: 720px; margin: 0 auto; padding: max(18px, env(safe-area-inset-top)) 16px calc(90px + env(safe-area-inset-bottom)); }
+    .appbar {
+      display:flex; align-items:center; justify-content:space-between; gap:14px; margin-bottom:14px;
+    }
+    .brand { display:flex; align-items:center; gap:12px; }
+    .logo {
+      width:52px; height:52px; border-radius:16px;
+      background: linear-gradient(160deg, #2563eb, #0f766e);
+      display:grid; place-items:center; color:white; box-shadow: var(--shadow); overflow:hidden;
+    }
+    .logo-inner { display:flex; flex-direction:column; align-items:center; justify-content:center; line-height:1; transform:translateY(1px); }
+    .logo-inner .txt { font-size:13px; font-weight:900; letter-spacing:-.04em; }
+    .logo-inner .check { font-size:16px; margin-top:2px; font-weight:900; }
+    .title h1 { margin:0; font-size:25px; letter-spacing:-.05em; }
+    .title p { margin:4px 0 0; color:var(--muted); font-size:13px; }
+    .pill {
+      border:1px solid var(--line); border-radius:999px; padding:10px 12px; background:#fff; font-size:13px; font-weight:800; white-space:nowrap;
+    }
+    .notice, .hero, .panel, .sheet, .record, .item-card, .settings-card {
+      background:var(--card); border:1px solid var(--line); border-radius:24px; box-shadow: var(--shadow);
+    }
+    .hero { padding:18px; margin-bottom:14px; }
+    .hero-top { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; }
+    .hero h2 { margin:0; font-size:24px; line-height:1.15; letter-spacing:-.05em; }
+    .hero .desc { margin:8px 0 0; color:var(--muted); line-height:1.55; }
+    .progress-box { margin-top:16px; }
+    .progress-label { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; font-size:13px; color:var(--muted); font-weight:700; }
+    .bar { height:12px; border-radius:999px; background:#e8edf4; overflow:hidden; }
+    .bar > div { height:100%; width:0; background:linear-gradient(90deg, #2563eb, #0ea5e9); transition: width .25s ease; }
+    .quick-actions { display:grid; grid-template-columns:repeat(2,1fr); gap:10px; margin-top:16px; }
+    .btn {
+      border:0; border-radius:16px; padding:15px 16px; font-weight:800; cursor:pointer; line-height:1.2;
+      display:inline-flex; justify-content:center; align-items:center; gap:8px;
+    }
+    .btn.primary { background:var(--blue); color:#fff; }
+    .btn.secondary { background:#fff; border:1px solid var(--line); color:var(--text); }
+    .btn.soft { background:var(--blue-soft); color:var(--blue); }
+    .btn.green { background:var(--green-soft); color:var(--green); }
+    .btn.red { background:var(--red-soft); color:var(--red); }
+    .btn.block { width:100%; }
+    .notice { padding:14px 16px; margin-bottom:14px; }
+    .notice strong { display:block; margin-bottom:4px; }
+    .notice p { margin:0; color:var(--muted); line-height:1.5; font-size:14px; }
+    .notice.warn { border-color:#f0d4a5; background:#fff9ed; }
+    .notice.ok { background:#f6fbff; }
+    .items-wrap { display:grid; gap:12px; }
+    .floor-title { display:flex; align-items:center; justify-content:space-between; margin:8px 2px 0; }
+    .floor-title h3 { margin:0; font-size:17px; letter-spacing:-.03em; }
+    .item-grid { display:grid; gap:10px; }
+    .item-card { padding:16px; display:flex; align-items:center; gap:14px; cursor:pointer; }
+    .item-card.done { border-color:#b8e1cf; background:#f5fcf8; }
+    .item-num {
+      flex:none; width:42px; height:42px; border-radius:14px; background:#eef3fb; display:grid; place-items:center; font-weight:900; color:#334155;
+    }
+    .item-card.done .item-num { background:#dcfce7; color:#047857; }
+    .item-main { flex:1; min-width:0; }
+    .item-main h4 { margin:0; font-size:17px; letter-spacing:-.03em; }
+    .item-main p { margin:5px 0 0; color:var(--muted); font-size:13px; line-height:1.45; }
+    .status { font-size:12px; font-weight:800; border-radius:999px; padding:7px 10px; background:#f1f5f9; color:#475569; white-space:nowrap; }
+    .item-card.done .status { background:#dcfce7; color:#047857; }
+    .tabs {
+      position:fixed; bottom:0; left:0; right:0; padding:10px 16px calc(10px + env(safe-area-inset-bottom)); background:rgba(244,247,251,.92); backdrop-filter: blur(18px); border-top:1px solid rgba(148,163,184,.25);
+    }
+    .tabs-inner { max-width:720px; margin:0 auto; display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
+    .tab { border:0; border-radius:18px; padding:12px 10px; background:#fff; color:var(--muted); font-weight:800; }
+    .tab.active { background:var(--blue); color:#fff; }
+    .view { display:none; }
+    .view.active { display:block; }
+    .record-list, .settings-list { display:grid; gap:12px; }
+    .record, .settings-card { padding:16px; }
+    .record-head { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; }
+    .record h4, .settings-card h4 { margin:0; font-size:17px; }
+    .record p, .settings-card p { margin:6px 0 0; color:var(--muted); line-height:1.5; }
+    .record-actions { display:grid; grid-template-columns:repeat(2,1fr); gap:10px; margin-top:14px; }
+    .empty { padding:18px; text-align:center; color:var(--muted); }
+    .settings-actions { display:grid; gap:10px; margin-top:14px; }
+    .field { margin-top:12px; }
+    .field label { display:block; font-size:13px; color:var(--muted); margin-bottom:6px; font-weight:700; }
+    .field input, .field select {
+      width:100%; padding:13px 14px; border-radius:14px; border:1px solid var(--line); background:#fff;
+    }
+    .muted-note { margin-top:10px; font-size:12px; color:var(--muted); line-height:1.55; }
+    .sheet-backdrop {
+      display:none; position:fixed; inset:0; background:rgba(15,23,42,.48); z-index:30; padding:16px; align-items:flex-end;
+    }
+    .sheet-backdrop.show { display:flex; }
+    .sheet {
+      width:min(720px, 100%); margin:0 auto; padding:18px; border-radius:28px 28px 22px 22px; max-height:88svh; overflow:auto;
+    }
+    .sheet h3 { margin:0; font-size:22px; letter-spacing:-.05em; }
+    .sheet p { margin:8px 0 0; color:var(--muted); line-height:1.5; }
+    .camera-box { margin-top:16px; border:1.5px dashed #bfdbfe; border-radius:20px; background:#f8fbff; padding:14px; text-align:center; }
+    .camera-trigger { width:100%; }
+    input[type=file] { display:none; }
     .preview { display:none; margin-top:16px; }
-    .preview img { width:100%; max-height:360px; object-fit:cover; border-radius:18px; border:1px solid #3a3a40; }
-    .meta { font-size:13px; color:#aaaab1; margin-top:9px; }
-    .actions { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:14px; }
-    button { border:0; border-radius:16px; padding:15px 14px; font-weight:800; font-size:16px; }
-    .secondary { background:#2b2b30; color:#fff; }
-    .primary { background:#fff; color:#111; }
-    .primary:disabled { opacity:.3; }
-    .list { margin-top:20px; display:grid; gap:8px; }
-    .item { display:flex; align-items:center; gap:10px; padding:12px 14px; background:#151517; border-radius:14px; color:#a7a7ad; }
-    .item.done { color:#fff; }
-    .dot { width:22px; height:22px; border-radius:50%; display:grid; place-items:center; background:#2a2a2e; font-size:13px; }
-    .item.done .dot { background:#fff; color:#111; }
-    .complete { display:none; text-align:center; padding:28px 10px; }
-    .complete .big { font-size:62px; }
-    .complete h2 { margin-top:12px; }
-    .history { margin-top:18px; }
-    .history h3 { margin:0 0 10px; font-size:17px; }
-    .history-row { background:#151517; border-radius:14px; padding:12px 14px; color:#c7c7cc; margin-bottom:8px; font-size:14px; }
-    .reset { margin-top:20px; width:100%; background:#2b2b30; color:#fff; }
-    .hint { font-size:12px; color:#85858c; line-height:1.5; margin-top:14px; }
+    .preview.show { display:block; }
+    .preview img { width:100%; border-radius:18px; border:1px solid var(--line); max-height:340px; object-fit:cover; }
+    .preview-meta { margin-top:8px; color:var(--muted); font-size:13px; }
+    .sheet-actions { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:16px; }
+    .close-top { margin-left:auto; background:#eff6ff; color:var(--blue); border:0; border-radius:12px; padding:9px 12px; font-weight:800; }
+    .detail-grid { display:grid; gap:12px; margin-top:14px; }
+    .detail-item { border:1px solid var(--line); border-radius:18px; padding:12px; }
+    .detail-item img { width:100%; border-radius:14px; margin-top:8px; }
+    .detail-meta { color:var(--muted); font-size:13px; margin-top:6px; }
+    .toast {
+      position:fixed; left:50%; bottom:108px; transform:translateX(-50%) translateY(20px); min-width:260px; max-width:calc(100vw - 28px);
+      background:#0f172a; color:#fff; padding:14px 16px; border-radius:16px; box-shadow:0 22px 44px rgba(2,6,23,.35);
+      opacity:0; pointer-events:none; transition: all .24s ease; z-index:60;
+    }
+    .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+    .footer-note { margin-top:16px; color:var(--muted); font-size:12px; line-height:1.6; }
+
+    .public-wrap { max-width:720px; margin:0 auto; padding:24px 16px 50px; }
+    .public-head { background:linear-gradient(160deg,#2563eb,#0f766e); color:#fff; border-radius:26px; padding:22px; box-shadow:var(--shadow); }
+    .public-head h1 { margin:0; font-size:28px; letter-spacing:-.05em; }
+    .public-head p { margin:8px 0 0; opacity:.9; line-height:1.5; }
+    .public-grid { display:grid; gap:14px; margin-top:16px; }
+    .public-photo { background:#fff; border:1px solid var(--line); border-radius:22px; padding:14px; box-shadow:var(--shadow); }
+    .public-photo h3 { margin:0 0 8px; font-size:17px; }
+    .public-photo img { width:100%; border-radius:16px; display:block; }
+    .public-meta { margin-top:8px; color:var(--muted); font-size:13px; }
+    .loading-card { margin:40px auto; max-width:560px; background:#fff; border:1px solid var(--line); border-radius:22px; padding:24px; text-align:center; box-shadow:var(--shadow); }
+
+    @media (max-width: 560px) {
+      .quick-actions, .record-actions, .sheet-actions { grid-template-columns:1fr; }
+      .hero-top { flex-direction:column; }
+      .pill { align-self:flex-start; }
+      .title h1 { font-size:23px; }
+      .hero h2 { font-size:22px; }
+    }
   </style>
 </head>
 <body>
-<main>
-  <header>
-    <h1>작업실 퇴실체크</h1>
-    <span class="badge" id="counter">0 / 7</span>
-  </header>
-  <div class="progress"><div id="bar"></div></div>
+  <div id="publicShareRoot" style="display:none"></div>
+  <div class="wrap" id="appRoot">
+    <header class="appbar">
+      <div class="brand">
+        <div class="logo" aria-hidden="true">
+          <div class="logo-inner"><div class="txt">창신</div><div class="check">✓</div></div>
+        </div>
+        <div class="title">
+          <h1>창신체크미</h1>
+          <p>작업실 퇴실 점검을 사진으로 남기는 개인용 체크 앱</p>
+        </div>
+      </div>
+      <div class="pill" id="headerCount">0 / 7 완료</div>
+    </header>
 
-  <section class="card" id="checkCard">
-    <div class="step" id="stepLabel">1번째 확인</div>
-    <h2 id="title">1층 에어컨</h2>
-    <p class="desc">실제로 꺼져 있는 상태가 사진에 보이게 촬영하세요. 사진이 없으면 다음 단계로 넘어갈 수 없습니다.</p>
+    <div class="notice ok" id="monitorNotice">
+      <strong>위치 경고 안내</strong>
+      <p id="monitorText">웹앱이 열려 있는 동안에는 작업실에서 멀어질 때 경고를 띄울 수 있어요. 아이폰에서 완전한 백그라운드 즉시 경고는 웹앱만으로 제한이 있으니, 진짜 즉각 경고는 단축어 자동화와 같이 쓰는 걸 추천해요.</p>
+    </div>
 
-    <label class="camera" for="cameraInput">📷 지금 사진 찍기</label>
-    <input id="cameraInput" type="file" accept="image/*" capture="environment" />
+    <section class="hero">
+      <div class="hero-top">
+        <div>
+          <h2 id="heroTitle">원하는 항목부터 눌러서 사진 찍기</h2>
+          <p class="desc" id="heroDesc">1층부터든 2층부터든 상관없이, 아래 카드 중 필요한 곳을 바로 눌러 사진을 찍어 주세요.</p>
+        </div>
+        <div class="pill" id="sessionStatus">점검 진행 중</div>
+      </div>
+      <div class="progress-box">
+        <div class="progress-label"><span id="progressText">0개 완료</span><span id="breakText">잠시 외출 꺼짐</span></div>
+        <div class="bar"><div id="progressBar"></div></div>
+      </div>
+      <div class="quick-actions">
+        <button class="btn primary" id="newSessionBtn" type="button">새 점검 시작</button>
+        <button class="btn soft" id="breakBtn" type="button">잠시 외출</button>
+        <button class="btn secondary" id="shareCurrentBtn" type="button">현재 점검 공유</button>
+        <button class="btn secondary" id="requestLocationBtn" type="button">현재 위치 권한 확인</button>
+      </div>
+    </section>
 
-    <div class="preview" id="preview">
-      <img id="previewImg" alt="촬영 사진 미리보기" />
-      <div class="meta" id="photoMeta"></div>
-      <div class="actions">
-        <button class="secondary" id="retakeBtn" type="button">다시 찍기</button>
-        <button class="primary" id="nextBtn" type="button" disabled>확인 완료</button>
+    <section id="checkView" class="view active">
+      <div class="items-wrap" id="itemsWrap"></div>
+      <p class="footer-note">각 카드를 눌러 바로 촬영할 수 있어요. 이미 완료한 항목을 다시 누르면 사진을 덮어써서 수정할 수 있습니다.</p>
+    </section>
+
+    <section id="historyView" class="view">
+      <div class="record-list" id="recordList"></div>
+      <p class="footer-note">기록은 이 기기 안에만 저장됩니다. Safari 데이터 삭제나 웹앱 삭제 시 사라질 수 있습니다.</p>
+    </section>
+
+    <section id="settingsView" class="view">
+      <div class="settings-list">
+        <div class="settings-card">
+          <h4>작업실 위치 설정</h4>
+          <p id="workshopInfo">아직 작업실 위치가 저장되지 않았습니다.</p>
+          <div class="field">
+            <label for="radiusInput">경고 반경 (미터)</label>
+            <input id="radiusInput" type="number" min="30" max="500" step="10" value="120" />
+          </div>
+          <div class="settings-actions">
+            <button class="btn primary block" id="saveWorkshopBtn" type="button">현재 위치를 작업실로 저장</button>
+            <button class="btn secondary block" id="clearWorkshopBtn" type="button">작업실 위치 지우기</button>
+          </div>
+          <p class="muted-note">이 설정은 웹앱이 열려 있는 동안의 위치 경고에 사용됩니다. 아이폰에서 앱을 닫은 상태까지 포함한 완전한 즉시 경고는 단축어 자동화와 함께 쓰는 것이 가장 안정적입니다.</p>
+        </div>
+
+        <div class="settings-card">
+          <h4>잠시 외출 설정</h4>
+          <p>밥 먹으러 나가거나 잠깐 외출할 때는 잠시 외출을 켜 두면 경고를 잠깐 끌 수 있어요.</p>
+          <div class="field">
+            <label for="breakSelect">기본 잠시 외출 시간</label>
+            <select id="breakSelect">
+              <option value="30">30분</option>
+              <option value="60">1시간</option>
+              <option value="120">2시간</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="settings-card">
+          <h4>공유 기능 안내</h4>
+          <p>현재 버전의 공유는 문자 내용을 만들어 주는 방식이에요. 다른 사람이 링크를 눌러 사진까지 직접 보는 기능은 서버 저장소가 필요한 2차 버전에서 넣을 수 있어요.</p>
+          <p class="muted-note">원하면 다음 단계에서 Firebase 또는 Supabase를 붙여서, 공유 링크를 누르면 사진 기록 페이지가 열리도록 확장할 수 있습니다.</p>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div class="tabs">
+    <div class="tabs-inner">
+      <button class="tab active" data-view="checkView" type="button">점검</button>
+      <button class="tab" data-view="historyView" type="button">기록</button>
+      <button class="tab" data-view="settingsView" type="button">설정</button>
+    </div>
+  </div>
+
+  <div class="sheet-backdrop" id="cameraSheetBackdrop" aria-hidden="true">
+    <div class="sheet">
+      <button class="close-top" type="button" id="closeCameraSheetBtn">닫기</button>
+      <h3 id="cameraSheetTitle">항목 촬영</h3>
+      <p id="cameraSheetDesc">실제로 확인한 상태가 보이도록 사진을 찍어 주세요.</p>
+      <div class="camera-box">
+        <button class="btn primary camera-trigger" id="cameraTriggerBtn" type="button">📷 카메라 열기</button>
+        <input id="cameraInput" type="file" accept="image/*" capture="environment" />
+        <div class="preview" id="cameraPreview">
+          <img id="previewImg" alt="촬영 미리보기" />
+          <div class="preview-meta" id="previewMeta"></div>
+          <div class="sheet-actions">
+            <button class="btn secondary" id="retakeBtn" type="button">다시 찍기</button>
+            <button class="btn primary" id="savePhotoBtn" type="button" disabled>이 사진으로 저장</button>
+          </div>
+        </div>
       </div>
     </div>
-  </section>
+  </div>
 
-  <section class="card complete" id="completeCard">
-    <div class="big">✅</div>
-    <h2>모든 점검 완료</h2>
-    <p class="desc" id="completeText"></p>
-    <button class="primary" id="saveSummaryBtn" type="button" style="width:100%">완료 기록 공유하기</button>
-    <button class="reset" id="newCheckBtn" type="button">새 점검 시작</button>
-  </section>
+  <div class="sheet-backdrop" id="recordSheetBackdrop" aria-hidden="true">
+    <div class="sheet">
+      <button class="close-top" type="button" id="closeRecordSheetBtn">닫기</button>
+      <h3 id="recordSheetTitle">기록 보기</h3>
+      <p id="recordSheetDesc">날짜별로 저장된 사진 기록을 확인할 수 있어요.</p>
+      <div class="detail-grid" id="recordDetailGrid"></div>
+      <div class="sheet-actions">
+        <button class="btn secondary" id="shareRecordBtn" type="button">이 기록 공유</button>
+        <button class="btn primary" id="duplicateSessionBtn" type="button">이 기록 기준으로 새 점검 시작</button>
+      </div>
+    </div>
+  </div>
 
-  <div class="list" id="list"></div>
+  <div class="toast" id="toast"></div>
 
-  <section class="history" id="historySection">
-    <h3>최근 완료 기록</h3>
-    <div id="history"></div>
-  </section>
-
-  <p class="hint">촬영 사진은 이 웹앱의 기기 내부 저장소에만 보관됩니다. Safari 데이터 삭제, 웹앱 삭제 또는 저장공간 정리 시 사라질 수 있습니다.</p>
-</main>
-<script>
-const ITEMS = [
-  '1층 에어컨', '1층 실내조명', '1층 실외조명', '1층 문 잠금',
-  '2층 에어컨', '2층 실내조명', '2층 문 잠금'
-];
-let current = 0;
-let session = [];
-let objectUrl = null;
-
-const $ = id => document.getElementById(id);
-const cameraInput = $('cameraInput');
-const preview = $('preview');
-const previewImg = $('previewImg');
-const nextBtn = $('nextBtn');
-
-function render() {
-  $('counter').textContent = `${current} / ${ITEMS.length}`;
-  $('bar').style.width = `${(current / ITEMS.length) * 100}%`;
-  $('list').innerHTML = ITEMS.map((name, i) => `
-    <div class="item ${i < current ? 'done' : ''}">
-      <span class="dot">${i < current ? '✓' : i + 1}</span><span>${name}</span>
-    </div>`).join('');
-  if (current < ITEMS.length) {
-    $('stepLabel').textContent = `${current + 1}번째 확인`;
-    $('title').textContent = ITEMS[current];
-  }
-  renderHistory();
-}
-
-cameraInput.addEventListener('change', async () => {
-  const file = cameraInput.files && cameraInput.files[0];
-  if (!file) return;
-  if (objectUrl) URL.revokeObjectURL(objectUrl);
-  objectUrl = URL.createObjectURL(file);
-  previewImg.src = objectUrl;
-  const stamp = new Date();
-  $('photoMeta').textContent = `${stamp.toLocaleString('ko-KR')} · ${(file.size / 1024 / 1024).toFixed(1)}MB`;
-  preview.style.display = 'block';
-  nextBtn.disabled = false;
-  nextBtn.dataset.timestamp = stamp.toISOString();
-});
-
-$('retakeBtn').addEventListener('click', () => {
-  cameraInput.value = '';
-  preview.style.display = 'none';
-  nextBtn.disabled = true;
-  cameraInput.click();
-});
-
-nextBtn.addEventListener('click', async () => {
-  const file = cameraInput.files && cameraInput.files[0];
-  if (!file) return;
-  const dataUrl = await compressImage(file);
-  session.push({ item: ITEMS[current], timestamp: nextBtn.dataset.timestamp, image: dataUrl });
-  current += 1;
-  cameraInput.value = '';
-  preview.style.display = 'none';
-  nextBtn.disabled = true;
-  if (navigator.vibrate) navigator.vibrate(80);
-  if (current >= ITEMS.length) finish();
-  else render();
-});
-
-function compressImage(file) {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    const url = URL.createObjectURL(file);
-    img.onload = () => {
-      const max = 1280;
-      const scale = Math.min(1, max / Math.max(img.width, img.height));
-      const canvas = document.createElement('canvas');
-      canvas.width = Math.round(img.width * scale);
-      canvas.height = Math.round(img.height * scale);
-      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-      URL.revokeObjectURL(url);
-      resolve(canvas.toDataURL('image/jpeg', .72));
-    };
-    img.onerror = reject;
-    img.src = url;
-  });
-}
-
-function finish() {
-  const completedAt = new Date().toISOString();
-  const history = JSON.parse(localStorage.getItem('workshopHistory') || '[]');
-  history.unshift({ completedAt, count: session.length });
-  localStorage.setItem('workshopHistory', JSON.stringify(history.slice(0, 20)));
-  try { localStorage.setItem('lastWorkshopSession', JSON.stringify({ completedAt, photos: session })); } catch (_) {}
-  $('checkCard').style.display = 'none';
-  $('completeCard').style.display = 'block';
-  $('completeText').textContent = `${new Date(completedAt).toLocaleString('ko-KR')}에 7개 항목을 모두 촬영했습니다. 이제 귀가해도 됩니다.`;
-  $('counter').textContent = `7 / 7`;
-  $('bar').style.width = '100%';
-  render();
-  if (navigator.vibrate) navigator.vibrate([120,80,120]);
-}
-
-$('saveSummaryBtn').addEventListener('click', async () => {
-  const text = `작업실 퇴실 점검 완료\n${new Date().toLocaleString('ko-KR')}\n\n${ITEMS.map(x => `✅ ${x}`).join('\n')}`;
-  if (navigator.share) await navigator.share({ title:'작업실 퇴실 점검 완료', text });
-  else { await navigator.clipboard.writeText(text); alert('완료 기록을 복사했습니다.'); }
-});
-
-$('newCheckBtn').addEventListener('click', () => {
-  current = 0; session = [];
-  $('checkCard').style.display = 'block';
-  $('completeCard').style.display = 'none';
-  render();
-});
-
-function renderHistory() {
-  const history = JSON.parse(localStorage.getItem('workshopHistory') || '[]');
-  $('history').innerHTML = history.length ? history.map(h => `<div class="history-row">✅ ${new Date(h.completedAt).toLocaleString('ko-KR')} · ${h.count}개 완료</div>`).join('') : '<div class="history-row">아직 완료 기록이 없습니다.</div>';
-}
-
-if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js');
-render();
-</script>
+<script type="module" src="./app.js"></script>
 </body>
 </html>
