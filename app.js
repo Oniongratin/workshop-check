@@ -373,18 +373,56 @@ function renderHistory() {
   }
   $('historyList').innerHTML = state.history.map(record => `<article class="card history-card">
     <button class="record-delete" type="button" data-delete-record="${record.id}" aria-label="이 기록 삭제"><svg viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path d="M2 2L10 10M10 2L2 10" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button>
-    <h3>${new Date(record.completedAt).toLocaleDateString('ko-KR')}</h3>
-    <p>${formatTime(record.completedAt)} · ${Object.keys(record.items || {}).length}개 완료${countNotes(record) ? ` · 메모 ${countNotes(record)}개` : ''}</p>
+    <button class="history-card-main" type="button" data-view-record="${record.id}" aria-label="${new Date(record.completedAt).toLocaleDateString('ko-KR')} 기록 사진 보기">
+      <div class="history-card-head"><h3>${new Date(record.completedAt).toLocaleDateString('ko-KR')}</h3><span class="history-time">${formatTime(record.completedAt)}</span></div>
+      <div class="history-thumbs" data-history-thumbs="${record.id}" aria-label="점검 사진 미리보기">
+        ${ITEMS.map((item, index) => `<span class="history-thumb ${index === 0 ? 'primary' : ''}" data-thumb-item="${item.id}"><span class="thumb-placeholder"></span></span>`).join('')}
+      </div>
+      <div class="history-summary"><span>${Object.keys(record.items || {}).length}개 완료</span>${countNotes(record) ? `<span>메모 ${countNotes(record)}개</span>` : ''}</div>
+    </button>
     <div class="card-actions"><button class="small-btn" data-view-record="${record.id}">사진 보기</button><button class="small-btn white" data-share-record="${record.id}">공유</button></div>
   </article>`).join('');
 
   $$('[data-view-record]').forEach(button => button.onclick = () => showRecord(button.dataset.viewRecord));
-  $$('[data-share-record]').forEach(button => button.onclick = () => {
+  $$('[data-share-record]').forEach(button => button.onclick = event => {
+    event.stopPropagation();
     const record = state.history.find(entry => entry.id === button.dataset.shareRecord);
     shareSession(record, button);
   });
-  $$('[data-delete-record]').forEach(button => button.onclick = () => deleteHistoryRecord(button.dataset.deleteRecord, button));
+  $$('[data-delete-record]').forEach(button => button.onclick = event => {
+    event.stopPropagation();
+    deleteHistoryRecord(button.dataset.deleteRecord, button);
+  });
+  loadHistoryThumbnails();
   renderCalendar();
+}
+
+async function loadHistoryThumbnails() {
+  const cards = $$('[data-history-thumbs]');
+  for (const strip of cards) {
+    const record = state.history.find(entry => entry.id === strip.dataset.historyThumbs);
+    if (!record) continue;
+    const thumbs = [...strip.querySelectorAll('[data-thumb-item]')];
+    for (const thumb of thumbs) {
+      const itemId = thumb.dataset.thumbItem;
+      const meta = record.items?.[itemId] || {};
+      let url = meta.url || '';
+      try {
+        const blob = await getPhoto(record.id, itemId);
+        if (blob) url = URL.createObjectURL(blob);
+      } catch (error) {
+        console.warn('기록 썸네일 불러오기 실패', record.id, itemId, error);
+      }
+      if (!url || !thumb.isConnected) continue;
+      const img = document.createElement('img');
+      img.alt = ITEMS.find(item => item.id === itemId)?.name || '점검 사진';
+      img.loading = 'lazy';
+      img.decoding = 'async';
+      img.src = url;
+      img.onload = () => thumb.classList.add('loaded');
+      thumb.replaceChildren(img);
+    }
+  }
 }
 
 function countNotes(record) {
