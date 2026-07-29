@@ -19,7 +19,7 @@ const LEGACY_KEYS = ['changsinCheckMe_v12', 'changsinCheckMe_v11', 'changsinChec
 const DEFAULT = {
   current: null,
   history: [],
-  settings: { workshop: null, radius: 10, breakMinutes: 30, breakUntil: null },
+  settings: { workshop: null, radius: 10, breakMinutes: 30, breakUntil: null, historyMode: 'list' },
   view: 'checkView'
 };
 
@@ -31,6 +31,7 @@ let outsideHits = 0;
 let fb = null;
 let photoBusy = false;
 let shareBusy = false;
+let calendarCursor = new Date();
 
 const $ = id => document.getElementById(id);
 const $$ = selector => [...document.querySelectorAll(selector)];
@@ -157,7 +158,7 @@ async function renderPublic() {
     document.body.innerHTML = `<main class="public-wrap">
       <header class="top"><div class="brand"><div class="mark"><img src="logo-original.png" alt="창신체크미 로고"></div><div class="title"><h1>창신체크미 점검 기록</h1><p>${formatDateTime(data.completedAt)} 완료</p></div></div></header>
       <section class="card"><h3>퇴실 점검 완료</h3><p>총 ${photos.length}개 항목 · 진행률 ${data.progress || 100}%</p></section>
-      ${photos.map(photo => `<section class="public-photo"><h3>✓ ${escapeHtml(photo.title)}</h3><img src="${escapeHtml(photo.url)}" alt="${escapeHtml(photo.title)}" loading="lazy"><div class="public-meta">촬영 ${formatDateTime(photo.timestamp)}</div></section>`).join('')}
+      ${photos.map(photo => `<section class="public-photo"><h3>✓ ${escapeHtml(photo.title)}</h3>${photo.note ? `<div style="background:#fff;color:#000;border-radius:14px;padding:11px 14px;margin:10px 0;font-size:13px;font-weight:650;white-space:pre-wrap">${escapeHtml(photo.note)}</div>` : ''}<img src="${escapeHtml(photo.url)}" alt="${escapeHtml(photo.title)}" loading="lazy"><div class="public-meta">촬영 ${formatDateTime(photo.timestamp)}</div></section>`).join('')}
     </main>`;
   } catch (error) {
     console.error(error);
@@ -202,6 +203,8 @@ function setup() {
   $('copyShortcutUrlBtn').addEventListener('click', copyShortcutUrl);
   $('testFirebaseBtn').addEventListener('click', testFirebase);
   $('newSessionBtn').addEventListener('click', resetCurrentSession);
+  $('listModeBtn').addEventListener('click', () => setHistoryMode('list'));
+  $('calendarModeBtn').addEventListener('click', () => setHistoryMode('calendar'));
   $$('[data-view]').forEach(button => button.addEventListener('click', () => switchView(button.dataset.view)));
   $('completeClose').addEventListener('click', () => {
     $('completeScreen').classList.remove('show');
@@ -251,6 +254,7 @@ function render() {
   renderProgress();
   renderItems();
   renderHistory();
+  renderHistoryMode();
   renderSettings();
   switchView(state.view || 'checkView');
 }
@@ -336,15 +340,31 @@ function complete() {
   $('completeScreen').classList.add('show');
 }
 
+function setHistoryMode(mode) {
+  state.settings.historyMode = mode === 'calendar' ? 'calendar' : 'list';
+  save();
+  renderHistoryMode();
+}
+
+function renderHistoryMode() {
+  const mode = state.settings.historyMode === 'calendar' ? 'calendar' : 'list';
+  $('historyList').classList.toggle('hidden', mode !== 'list');
+  $('historyCalendar').classList.toggle('hidden', mode !== 'calendar');
+  $('listModeBtn').classList.toggle('active', mode === 'list');
+  $('calendarModeBtn').classList.toggle('active', mode === 'calendar');
+  if (mode === 'calendar') renderCalendar();
+}
+
 function renderHistory() {
   if (!state.history.length) {
     $('historyList').innerHTML = '<div class="card"><p>아직 완료 기록이 없습니다.</p></div>';
+    renderCalendar();
     return;
   }
   $('historyList').innerHTML = state.history.map(record => `<article class="card history-card">
     <button class="record-delete" type="button" data-delete-record="${record.id}" aria-label="이 기록 삭제"><svg viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path d="M2 2L10 10M10 2L2 10" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button>
     <h3>${new Date(record.completedAt).toLocaleDateString('ko-KR')}</h3>
-    <p>${formatTime(record.completedAt)} · ${Object.keys(record.items || {}).length}개 완료</p>
+    <p>${formatTime(record.completedAt)} · ${Object.keys(record.items || {}).length}개 완료${countNotes(record) ? ` · 메모 ${countNotes(record)}개` : ''}</p>
     <div class="card-actions"><button class="small-btn" data-view-record="${record.id}">사진 보기</button><button class="small-btn white" data-share-record="${record.id}">공유</button></div>
   </article>`).join('');
 
@@ -354,6 +374,57 @@ function renderHistory() {
     shareSession(record, button);
   });
   $$('[data-delete-record]').forEach(button => button.onclick = () => deleteHistoryRecord(button.dataset.deleteRecord, button));
+  renderCalendar();
+}
+
+function countNotes(record) {
+  return Object.values(record.items || {}).filter(item => item?.note?.trim()).length;
+}
+
+function dateKey(value) {
+  const date = new Date(value);
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function renderCalendar() {
+  const root = $('historyCalendar');
+  if (!root) return;
+  const year = calendarCursor.getFullYear();
+  const month = calendarCursor.getMonth();
+  const first = new Date(year, month, 1);
+  const gridStart = new Date(year, month, 1 - first.getDay());
+  const byDay = new Map();
+  for (const record of state.history) {
+    if (!record.completedAt) continue;
+    const key = dateKey(record.completedAt);
+    if (!byDay.has(key)) byDay.set(key, []);
+    byDay.get(key).push(record);
+  }
+  const today = dateKey(new Date());
+  const cells = [];
+  for (let i = 0; i < 42; i += 1) {
+    const day = new Date(gridStart);
+    day.setDate(gridStart.getDate() + i);
+    const key = dateKey(day);
+    const records = byDay.get(key) || [];
+    const latest = records[0];
+    const classes = ['calendar-day'];
+    if (day.getMonth() !== month) classes.push('other');
+    if (key === today) classes.push('today');
+    if (latest) classes.push('has-record');
+    cells.push(`<button class="${classes.join(' ')}" type="button" ${latest ? `data-calendar-record="${latest.id}"` : 'disabled'} aria-label="${day.toLocaleDateString('ko-KR')}${latest ? ' 점검 기록 있음' : ''}"><span>${day.getDate()}</span>${latest ? '<span class="calendar-check">✓</span>' : ''}</button>`);
+  }
+  const recordsThisMonth = state.history.filter(record => {
+    const d = new Date(record.completedAt);
+    return d.getFullYear() === year && d.getMonth() === month;
+  }).length;
+  root.innerHTML = `<div class="calendar-wrap"><div class="calendar-head"><button id="prevMonth" class="month-nav" type="button" aria-label="이전 달">‹</button><div class="month-label">${year}년 ${month + 1}월</div><button id="nextMonth" class="month-nav" type="button" aria-label="다음 달">›</button></div><div class="week-row"><span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span></div><div class="calendar-grid">${cells.join('')}</div>${recordsThisMonth ? '' : '<div class="empty-month">이 달에는 완료 기록이 없습니다.</div>'}</div>`;
+  $('prevMonth').onclick = () => { calendarCursor = new Date(year, month - 1, 1); renderCalendar(); };
+  $('nextMonth').onclick = () => { calendarCursor = new Date(year, month + 1, 1); renderCalendar(); };
+  $$('[data-calendar-record]').forEach(button => button.onclick = () => showRecord(button.dataset.calendarRecord));
 }
 
 async function deleteHistoryRecord(id, button) {
@@ -405,20 +476,63 @@ async function showRecord(id) {
   if (!record) return;
   const popup = open('', '_blank');
   if (!popup) return toast('팝업 차단을 해제해 주세요');
-  popup.document.write('<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>*{box-sizing:border-box}body{margin:0;background:#000;color:#fff;font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo",sans-serif;padding:calc(76px + env(safe-area-inset-top)) 18px 28px}.viewer-top{position:fixed;z-index:10;top:0;left:0;right:0;height:calc(58px + env(safe-area-inset-top));padding:env(safe-area-inset-top) 14px 0;display:flex;align-items:center;background:rgba(0,0,0,.9);backdrop-filter:blur(18px);border-bottom:1px solid #252525}.back-btn{border:0;background:transparent;color:#fff;font-size:16px;font-weight:700;padding:12px;display:flex;align-items:center;gap:7px}.back-btn span{font-size:27px;line-height:0}h1{font-size:25px;margin:0 0 22px}h3{margin:0 0 5px}img{width:100%;border-radius:14px;margin:10px 0 28px}small{color:#888}.missing{padding:30px;border:1px solid #333;border-radius:14px;color:#888;margin:10px 0 28px}</style><div class="viewer-top"><button class="back-btn" id="viewerBack" type="button"><span>‹</span>기록으로</button></div><h1>창신체크미</h1><p>사진을 불러오는 중...</p><script>document.getElementById("viewerBack").onclick=function(){window.close();setTimeout(function(){history.back()},100)}<\/script>');
+  popup.document.write('<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>*{box-sizing:border-box}body{margin:0;background:#000;color:#fff;font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo",sans-serif;padding:calc(76px + env(safe-area-inset-top)) 18px 28px}.viewer-top{position:fixed;z-index:10;top:0;left:0;right:0;height:calc(58px + env(safe-area-inset-top));padding:env(safe-area-inset-top) 14px 0;display:flex;align-items:center;background:rgba(0,0,0,.9);backdrop-filter:blur(18px);border-bottom:1px solid #252525}.back-btn{border:0;background:transparent;color:#fff;font-size:16px;font-weight:700;padding:12px;display:flex;align-items:center;gap:7px}.back-btn span{font-size:27px;line-height:0}h1{font-size:25px;margin:0 0 22px}h3{margin:0 0 5px}small{color:#888}.loading{color:#888}</style><div class="viewer-top"><button class="back-btn" id="viewerBack" type="button"><span>‹</span>기록으로</button></div><h1>창신체크미</h1><p class="loading">사진을 불러오는 중...</p>');
 
   const sections = [];
   for (const item of ITEMS) {
-    const meta = record.items?.[item.id];
+    const meta = record.items?.[item.id] || {};
     const blob = await getPhoto(record.id, item.id).catch(() => null);
-    const imageHtml = blob ? `<img src="${URL.createObjectURL(blob)}" alt="${escapeHtml(item.name)}">` : '<div class="missing">이 기기에서 사진을 찾지 못했습니다.</div>';
-    sections.push(`<h3>${escapeHtml(item.name)}</h3><small>${meta?.timestamp ? formatDateTime(meta.timestamp) : ''}</small>${imageHtml}`);
+    const url = blob ? URL.createObjectURL(blob) : '';
+    sections.push({ item, meta, url });
   }
-  popup.document.body.innerHTML = `<div class="viewer-top"><button class="back-btn" id="viewerBack" type="button"><span>‹</span>기록으로</button></div><h1>창신체크미</h1>${sections.join('')}`;
-  popup.document.getElementById('viewerBack').onclick = () => {
-    popup.close();
-    try { popup.history.back(); } catch {}
-  };
+
+  popup.document.head.insertAdjacentHTML('beforeend', `<style>
+    .photo-section{margin:0 0 34px}.photo-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:10px}.memo-btn{flex:none;border:1px solid #383838;border-radius:999px;background:#111;color:#fff;padding:8px 12px;font-size:12px;font-weight:750}.photo-frame{position:relative}.photo-frame img{display:block;width:100%;border-radius:14px}.missing{padding:30px;border:1px solid #333;border-radius:14px;color:#888}.memo-bubble{position:absolute;left:10px;right:10px;top:10px;background:rgba(255,255,255,.94);color:#000;border-radius:15px;padding:11px 14px;font-size:13px;line-height:1.45;font-weight:650;box-shadow:0 6px 20px rgba(0,0,0,.25);white-space:pre-wrap;word-break:break-word}.memo-bubble:after{content:"";position:absolute;left:18px;bottom:-7px;border-width:7px 7px 0 0;border-style:solid;border-color:rgba(255,255,255,.94) transparent transparent transparent}.memo-bubble.hidden{display:none}
+  </style>`);
+  popup.document.body.innerHTML = `<div class="viewer-top"><button class="back-btn" id="viewerBack" type="button"><span>‹</span>기록으로</button></div><h1>${new Date(record.completedAt).toLocaleDateString('ko-KR')} 기록</h1>${sections.map(({item,meta,url}) => `<section class="photo-section"><div class="photo-head"><div><h3>${escapeHtml(item.name)}</h3><small>${meta?.timestamp ? formatDateTime(meta.timestamp) : ''}</small></div><button class="memo-btn" type="button" data-note-item="${item.id}">${meta.note?.trim() ? '메모 수정' : '메모'}</button></div><div class="photo-frame">${url ? `<img src="${url}" alt="${escapeHtml(item.name)}">` : '<div class="missing">이 기기에서 사진을 찾지 못했습니다.</div>'}<div class="memo-bubble ${meta.note?.trim() ? '' : 'hidden'}" data-note-bubble="${item.id}">${escapeHtml(meta.note || '')}</div></div></section>`).join('')}`;
+  popup.document.getElementById('viewerBack').onclick = () => popup.close();
+  [...popup.document.querySelectorAll('[data-note-item]')].forEach(button => {
+    button.onclick = async () => {
+      const itemId = button.dataset.noteItem;
+      const item = ITEMS.find(entry => entry.id === itemId);
+      const currentNote = record.items?.[itemId]?.note || '';
+      const next = popup.prompt(`${item?.name || '항목'} 특이사항 메모`, currentNote);
+      if (next === null) return;
+      const note = next.trim().slice(0, 300);
+      if (!record.items[itemId]) record.items[itemId] = {};
+      record.items[itemId].note = note;
+      const historyRecord = state.history.find(entry => entry.id === record.id);
+      if (historyRecord?.items?.[itemId]) historyRecord.items[itemId].note = note;
+      if (state.current?.id === record.id && state.current.items?.[itemId]) state.current.items[itemId].note = note;
+      save();
+      const bubble = popup.document.querySelector(`[data-note-bubble="${itemId}"]`);
+      bubble.textContent = note;
+      bubble.classList.toggle('hidden', !note);
+      button.textContent = note ? '메모 수정' : '메모';
+      renderHistory();
+      await syncRecordNotes(record).catch(error => console.warn('메모 공유본 동기화 실패', error));
+      toast(note ? '메모가 저장되었습니다' : '메모가 삭제되었습니다');
+    };
+  });
+}
+
+async function syncRecordNotes(record) {
+  if (!record.shareId || !configured()) return;
+  const { db } = await services();
+  const photos = ITEMS.map(item => ({
+    id: item.id,
+    title: item.name,
+    timestamp: record.items?.[item.id]?.timestamp || null,
+    note: record.items?.[item.id]?.note || ''
+  }));
+  const snap = await getDoc(doc(db, 'checks', record.shareId));
+  if (!snap.exists()) return;
+  const current = snap.data();
+  const urls = new Map((current.photos || []).map(photo => [photo.id, photo.url]));
+  await setDoc(doc(db, 'checks', record.shareId), {
+    photos: photos.map(photo => ({ ...photo, url: urls.get(photo.id) || '' })),
+    updatedAt: serverTimestamp()
+  }, { merge: true });
 }
 
 function renderSettings() {
@@ -659,6 +773,7 @@ async function shareSession(session, button = null) {
         id: item.id,
         title: item.name,
         timestamp: meta.timestamp,
+        note: meta.note || '',
         url: await getDownloadURL(storageRef)
       });
     }
