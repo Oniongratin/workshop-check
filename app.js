@@ -1,7 +1,7 @@
 import { firebaseConfig } from './firebase-config.js';
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js';
 import { getAuth, signInAnonymously } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js';
-import { getFirestore, doc, setDoc, getDoc, deleteDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js';
+import { getFirestore, doc, setDoc, getDoc, deleteDoc, serverTimestamp, collection, query, where, getDocs } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js';
 import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-storage.js';
 
 const ITEMS = [
@@ -19,7 +19,7 @@ const LEGACY_KEYS = ['changsinCheckMe_v12', 'changsinCheckMe_v11', 'changsinChec
 const DEFAULT = {
   current: null,
   history: [],
-  settings: { workshop: null, radius: 10, breakMinutes: 30, breakUntil: null, historyMode: 'list' },
+  settings: { workshop: null, radius: 10, breakMinutes: 30, breakUntil: null, historyMode: 'list', recoveryCode: '' },
   view: 'checkView'
 };
 
@@ -66,6 +66,8 @@ function load() {
     ...(parsed || {}),
     settings: { ...DEFAULT.settings, ...(parsed?.settings || {}) }
   };
+
+  if (!merged.settings.recoveryCode) merged.settings.recoveryCode = generateRecoveryCode();
 
   // 이전 버전의 base64 사진은 localStorage 용량을 터뜨리는 핵심 원인이므로 제거한다.
   const sessions = [merged.current, ...(merged.history || [])].filter(Boolean);
@@ -173,6 +175,7 @@ async function start() {
   render();
   watchLocation();
   handleShortcutLaunch();
+  syncCloudHistory({ silent: true }).catch(error => console.warn('클라우드 기록 동기화 실패', error));
 }
 
 start().catch(error => {
@@ -202,6 +205,9 @@ function setup() {
   });
   $('copyShortcutUrlBtn').addEventListener('click', copyShortcutUrl);
   $('testFirebaseBtn').addEventListener('click', testFirebase);
+  $('copyRecoveryCodeBtn').addEventListener('click', copyRecoveryCode);
+  $('restoreRecoveryBtn').addEventListener('click', restoreRecoveryCode);
+  $('syncCloudBtn').addEventListener('click', () => syncCloudHistory({ silent: false }));
   $('newSessionBtn').addEventListener('click', resetCurrentSession);
   $('listModeBtn').addEventListener('click', () => setHistoryMode('list'));
   $('calendarModeBtn').addEventListener('click', () => setHistoryMode('calendar'));
@@ -338,6 +344,10 @@ function complete() {
   save();
   navigator.vibrate?.([100, 50, 100, 50, 160]);
   $('completeScreen').classList.add('show');
+  backupSession(state.current).then(() => toast('점검 기록이 자동 백업되었습니다')).catch(error => {
+    console.warn('자동 백업 실패', error);
+    toast('기록은 기기에 저장됨 · 클라우드 백업은 재시도됩니다');
+  });
 }
 
 function setHistoryMode(mode) {
@@ -452,7 +462,7 @@ async function deleteHistoryRecord(id, button) {
       try {
         const { db, storage, auth } = await services();
         await Promise.allSettled(ITEMS.map(item =>
-          deleteObject(ref(storage, `checks/${auth.currentUser.uid}/${record.shareId}/${item.id}.jpg`))
+          deleteObject(ref(storage, `checks/${record.cloudOwnerUid || auth.currentUser.uid}/${record.shareId}/${item.id}.jpg`))
         ));
         await deleteDoc(doc(db, 'checks', record.shareId));
       } catch (error) {
@@ -482,7 +492,7 @@ async function showRecord(id) {
   for (const item of ITEMS) {
     const meta = record.items?.[item.id] || {};
     const blob = await getPhoto(record.id, item.id).catch(() => null);
-    const url = blob ? URL.createObjectURL(blob) : '';
+    const url = blob ? URL.createObjectURL(blob) : (meta.url || '');
     sections.push({ item, meta, url });
   }
 
@@ -541,8 +551,189 @@ function renderSettings() {
   $('workshopInfo').textContent = state.settings.workshop ? `저장됨 · 반경 ${state.settings.radius}m` : '아직 저장되지 않음';
   $('shortcutUrlText').textContent = shortcutUrl();
   const ok = configured();
-  $('firebaseStatus').textContent = ok ? 'Firebase 설정됨' : 'Firebase 설정 필요';
+  $('firebaseStatus').textContent = ok ? 'Firebase 설정됨 · 자동 백업 사용' : 'Firebase 설정 필요';
   $('firebaseDot').classList.toggle('on', ok);
+  $('recoveryCodeText').textContent = state.settings.recoveryCode || '';
+  $('recoveryCodeInput').value = '';
+}
+
+
+function generateRecoveryCode() {
+  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const bytes = crypto.getRandomValues(new Uint8Array(12));
+  const raw = [...bytes].map(value => alphabet[value % alphabet.length]).join('');
+  return `${raw.slice(0, 4)}-${raw.slice(4, 8)}-${raw.slice(8, 12)}`;
+}
+
+function normalizeRecoveryCode(value) {
+  const raw = String(value || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12);
+  return raw.length === 12 ? `${raw.slice(0, 4)}-${raw.slice(4, 8)}-${raw.slice(8, 12)}` : '';
+}
+
+async function copyRecoveryCode() {
+  const code = state.settings.recoveryCode;
+  try {
+    await navigator.clipboard.writeText(code);
+    toast('복구 코드가 복사되었습니다');
+  } catch {
+    prompt('이 복구 코드를 안전한 곳에 보관하세요', code);
+  }
+}
+
+async function restoreRecoveryCode() {
+  const code = normalizeRecoveryCode($('recoveryCodeInput').value);
+  if (!code) return toast('복구 코드 12자리를 확인해 주세요');
+  const ok = confirm('입력한 복구 코드의 기록을 이 기기로 불러올까요?\n현재 기록은 삭제되지 않고 합쳐집니다.');
+  if (!ok) return;
+  state.settings.recoveryCode = code;
+  save();
+  await syncCloudHistory({ silent: false, code });
+  renderSettings();
+}
+
+function cloudRecordFromDoc(snapshot) {
+  const data = snapshot.data();
+  const items = {};
+  for (const photo of Array.isArray(data.photos) ? data.photos : []) {
+    if (!photo?.id) continue;
+    items[photo.id] = {
+      title: photo.title || ITEMS.find(item => item.id === photo.id)?.name || photo.id,
+      timestamp: photo.timestamp || data.completedAt || null,
+      note: photo.note || '',
+      url: photo.url || ''
+    };
+  }
+  return {
+    id: data.sessionId || `cloud_${snapshot.id}`,
+    startedAt: data.startedAt || null,
+    completedAt: data.completedAt || null,
+    items,
+    shareId: snapshot.id,
+    shareUrl: buildShareUrl(snapshot.id),
+    backedUpAt: data.updatedAt?.toDate?.()?.toISOString?.() || data.completedAt || null,
+    cloudOwnerUid: data.ownerUid || ''
+  };
+}
+
+function buildShareUrl(id) {
+  const url = new URL(location.href);
+  url.search = '';
+  url.hash = '';
+  url.searchParams.set('share', id);
+  return url.toString();
+}
+
+function mergeCloudRecords(records) {
+  let added = 0;
+  let updated = 0;
+  for (const incoming of records) {
+    if (!incoming.completedAt) continue;
+    const index = state.history.findIndex(record =>
+      record.shareId === incoming.shareId ||
+      record.id === incoming.id ||
+      (record.completedAt === incoming.completedAt && Object.keys(record.items || {}).length === Object.keys(incoming.items || {}).length)
+    );
+    if (index < 0) {
+      state.history.push(incoming);
+      added += 1;
+      continue;
+    }
+    const current = state.history[index];
+    const mergedItems = { ...(incoming.items || {}), ...(current.items || {}) };
+    for (const [itemId, incomingItem] of Object.entries(incoming.items || {})) {
+      mergedItems[itemId] = { ...incomingItem, ...(current.items?.[itemId] || {}) };
+      if (!mergedItems[itemId].url) mergedItems[itemId].url = incomingItem.url || '';
+    }
+    state.history[index] = { ...incoming, ...current, items: mergedItems, shareId: incoming.shareId, shareUrl: incoming.shareUrl };
+    updated += 1;
+  }
+  state.history.sort((a, b) => new Date(b.completedAt || 0) - new Date(a.completedAt || 0));
+  save();
+  render();
+  return { added, updated };
+}
+
+async function syncCloudHistory({ silent = true, code = state.settings.recoveryCode } = {}) {
+  if (!configured() || !code) return;
+  const button = $('syncCloudBtn');
+  const oldText = button?.textContent;
+  if (button && !silent) { button.disabled = true; button.textContent = '동기화 중…'; }
+  if (!silent) toast('클라우드 기록을 확인합니다');
+  try {
+    const { db } = await services();
+    const snap = await getDocs(query(collection(db, 'checks'), where('backupCode', '==', code)));
+    const records = snap.docs.filter(docSnap => docSnap.data()?.type !== 'connection-test').map(cloudRecordFromDoc);
+    const result = mergeCloudRecords(records);
+
+    // 이 기기에만 남아 있던 이전 버전 기록도 차례로 백업한다.
+    const pending = state.history.filter(record => record.completedAt && Object.keys(record.items || {}).length === ITEMS.length && !record.backedUpAt);
+    for (const record of pending) {
+      try { await backupSession(record); } catch (error) { console.warn('이전 기록 백업 실패', record.id, error); }
+    }
+    if (!silent) toast(`동기화 완료 · 새 기록 ${result.added}개`);
+  } catch (error) {
+    console.error('클라우드 복원 실패', error);
+    if (!silent) toast(`동기화 실패 · ${firebaseErrorText(error)}`);
+    throw error;
+  } finally {
+    if (button && !silent) { button.disabled = false; button.textContent = oldText || '지금 동기화'; }
+  }
+}
+
+async function backupSession(session, onProgress = null) {
+  if (!session?.completedAt || Object.keys(session.items || {}).length !== ITEMS.length) throw new Error('완료된 기록만 백업할 수 있습니다');
+  if (!configured()) throw new Error('Firebase 설정 필요');
+  const { db, storage, auth } = await services();
+
+  // 복구한 타 기기 소유 문서는 수정할 수 없으므로 현재 계정 소유의 새 백업본을 만든다.
+  let id = session.shareId || generateId();
+  if (session.cloudOwnerUid && session.cloudOwnerUid !== auth.currentUser.uid) id = generateId();
+  const checkRef = doc(db, 'checks', id);
+  const existing = await getDoc(checkRef).catch(() => null);
+  const existingPhotos = new Map((existing?.exists() ? existing.data().photos : []).map(photo => [photo.id, photo]));
+
+  await setDoc(checkRef, {
+    ownerUid: auth.currentUser.uid,
+    backupCode: state.settings.recoveryCode,
+    sessionId: session.id,
+    public: true,
+    type: 'inspection',
+    completedAt: session.completedAt,
+    startedAt: session.startedAt || null,
+    progress: 0,
+    createdAt: existing?.exists() ? existing.data().createdAt || serverTimestamp() : serverTimestamp(),
+    updatedAt: serverTimestamp()
+  }, { merge: true });
+
+  const photos = [];
+  for (let index = 0; index < ITEMS.length; index += 1) {
+    const item = ITEMS[index];
+    const meta = session.items[item.id] || {};
+    onProgress?.(index + 1, ITEMS.length);
+    let url = meta.url || existingPhotos.get(item.id)?.url || '';
+    const blob = await getPhoto(session.id, item.id).catch(() => null);
+    if (blob) {
+      const path = `checks/${auth.currentUser.uid}/${id}/${item.id}.jpg`;
+      const storageRef = ref(storage, path);
+      await uploadBytes(storageRef, blob, { contentType: 'image/jpeg', cacheControl: 'public,max-age=31536000' });
+      url = await getDownloadURL(storageRef);
+    }
+    if (!url) throw new Error(`${item.name} 사진을 찾지 못했습니다`);
+    meta.url = url;
+    photos.push({ id: item.id, title: item.name, timestamp: meta.timestamp || null, note: meta.note || '', url });
+  }
+
+  await setDoc(checkRef, { photos, progress: 100, updatedAt: serverTimestamp() }, { merge: true });
+  session.shareId = id;
+  session.shareUrl = buildShareUrl(id);
+  session.backedUpAt = new Date().toISOString();
+  session.cloudOwnerUid = auth.currentUser.uid;
+  if (state.current?.id === session.id) Object.assign(state.current, session);
+  const historyRecord = state.history.find(record => record.id === session.id);
+  if (historyRecord) Object.assign(historyRecord, clone(session));
+  save();
+  render();
+  return session.shareUrl;
 }
 
 function shortcutUrl() {
@@ -724,98 +915,24 @@ async function shareSession(session, button = null) {
   if (shareBusy) return;
   if (!session?.completedAt || Object.keys(session.items || {}).length !== ITEMS.length) return toast('7개를 모두 완료해 주세요');
   if (!configured()) return toast('Firebase 설정이 없습니다');
-
-  // iPhone의 공유창은 사용자가 버튼을 누른 바로 그 순간에만 열 수 있다.
-  // 업로드가 끝난 뒤 자동 호출하면 NotAllowedError/요청 실패가 나므로,
-  // 링크가 준비된 경우에는 두 번째 탭에서 즉시 공유창을 연다.
-  if (session.shareUrl) {
-    return openNativeShare(session.shareUrl);
-  }
+  if (session.shareUrl) return openNativeShare(session.shareUrl);
 
   shareBusy = true;
   const oldText = button?.textContent || '공유하기';
-  if (button) {
-    button.disabled = true;
-    button.textContent = '연결 확인…';
-  }
-  toast('공유 링크를 준비합니다');
-
-  let id = '';
+  if (button) { button.disabled = true; button.textContent = '백업 준비…'; }
+  toast('사진을 안전하게 백업합니다');
   try {
-    const { db, storage, auth } = await services();
-    id = generateId();
-    const checkRef = doc(db, 'checks', id);
-
-    // 사진을 올리기 전에 Firestore 권한부터 검사한다.
-    // 규칙이 잘못됐을 때 사진 7장만 Storage에 남는 현상을 막는다.
-    await setDoc(checkRef, {
-      ownerUid: auth.currentUser.uid,
-      public: true,
-      completedAt: session.completedAt,
-      startedAt: session.startedAt || null,
-      photos: [],
-      progress: 0,
-      createdAt: serverTimestamp()
+    await backupSession(session, (current, total) => {
+      if (button) button.textContent = `백업 ${current} / ${total}`;
     });
-
-    const photos = [];
-    for (let index = 0; index < ITEMS.length; index += 1) {
-      const item = ITEMS[index];
-      const meta = session.items[item.id];
-      const blob = await getPhoto(session.id, item.id);
-      if (!meta || !blob) throw new Error(`${item.name} 사진을 찾지 못했습니다`);
-      if (button) button.textContent = `업로드 ${index + 1} / ${ITEMS.length}`;
-
-      const path = `checks/${auth.currentUser.uid}/${id}/${item.id}.jpg`;
-      const storageRef = ref(storage, path);
-      await uploadBytes(storageRef, blob, { contentType: 'image/jpeg', cacheControl: 'public,max-age=31536000' });
-      photos.push({
-        id: item.id,
-        title: item.name,
-        timestamp: meta.timestamp,
-        note: meta.note || '',
-        url: await getDownloadURL(storageRef)
-      });
-    }
-
-    await setDoc(checkRef, {
-      photos,
-      progress: 100,
-      location: coords ? { accuracy: Math.round(coords.accuracy || 0) } : null,
-      updatedAt: serverTimestamp()
-    }, { merge: true });
-
-    const url = new URL(location.href);
-    url.search = '';
-    url.hash = '';
-    url.searchParams.set('share', id);
-    const shareUrl = url.toString();
-
-    session.shareId = id;
-    session.shareUrl = shareUrl;
-    if (state.current?.id === session.id) {
-      state.current.shareId = id;
-      state.current.shareUrl = shareUrl;
-    }
-    const historyRecord = state.history.find(record => record.id === session.id);
-    if (historyRecord) {
-      historyRecord.shareId = id;
-      historyRecord.shareUrl = shareUrl;
-    }
-    save();
-    render();
-
     if (button) button.textContent = '공유창 열기';
-    toast('링크 준비 완료 · 공유하기를 한 번 더 누르세요');
+    toast('백업 완료 · 공유하기를 한 번 더 누르세요');
   } catch (error) {
     console.error(error);
-    toast(`공유 준비 실패 · ${firebaseErrorText(error)}`);
+    toast(`백업 실패 · ${firebaseErrorText(error)}`);
   } finally {
     shareBusy = false;
-    if (button) {
-      button.disabled = false;
-      button.textContent = session.shareUrl ? '공유창 열기' : oldText;
-    }
+    if (button) { button.disabled = false; button.textContent = session.shareUrl ? '공유창 열기' : oldText; }
   }
 }
 
